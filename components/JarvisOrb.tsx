@@ -134,6 +134,19 @@ export default function JarvisOrb() {
         )}
       </div>
 
+<div className="hud hud-title">
+  <a
+    href="/chat"
+    className="hud-btn"
+    style={{
+      pointerEvents: "auto",
+      textDecoration: "none",
+      display: "inline-block",
+    }}
+  >
+    CHAT + VOICE
+  </a>
+</div>
       <div className="hud hud-controls">
         <div className={`camera-panel${cameraOn ? " visible" : ""}`}>
           {/* Mirrored preview so it behaves like a mirror */}
