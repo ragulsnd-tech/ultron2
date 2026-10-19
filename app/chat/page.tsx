@@ -2,6 +2,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import JarvisOrb from "@/components/JarvisOrb";
 
 type Message = {
   role: "user" | "assistant";
