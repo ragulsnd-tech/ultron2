@@ -360,6 +360,9 @@ export default function ChatPage() {
 
   return (
     <main style={s.page}>
+      <div style={s.orbSection}>
+  <JarvisOrb />
+</div>
       <header style={s.header}>
         <a href="/" style={s.home}>
           ← Home
@@ -688,6 +691,16 @@ const s: Record<string, React.CSSProperties> = {
     fontSize: "10px",
     textAlign: "center",
     padding: "8px 0 2px",
+  },
+
+  orbSection: {
+  width: "100%",
+  flexShrink: 0,
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+  maxHeight: "220px",
+  overflow: "hidden",
   },
 };
           
