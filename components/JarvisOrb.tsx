@@ -12,7 +12,11 @@ const MODE_LABEL: Record<TrackerStatus["mode"], string> = {
   zoom: "ZOOM",
 };
 
-export default function JarvisOrb() {
+export default function JarvisOrb({
+  compact = false,
+}: {
+  compact?: boolean;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
@@ -108,10 +112,9 @@ export default function JarvisOrb() {
   return (
     <>
       <div
-         ref={containerRef}
-         className="orb-root"
-         data-chat-orb="true"
-         />
+  ref={containerRef}
+  className={compact ? "orb-root orb-root-chat" : "orb-root"}
+/>
 
       <div className="overlay-vignette" />
       <div className="overlay-grain" />
