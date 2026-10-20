@@ -107,7 +107,11 @@ export default function JarvisOrb() {
 
   return (
     <>
-      <div ref={containerRef} className="orb-root" />
+      <div
+         ref={containerRef}
+         className="orb-root"
+         data-chat-orb="true"
+         />
 
       <div className="overlay-vignette" />
       <div className="overlay-grain" />
