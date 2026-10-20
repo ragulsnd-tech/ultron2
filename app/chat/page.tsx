@@ -361,7 +361,7 @@ export default function ChatPage() {
   return (
     <main style={s.page}>
       <div style={s.orbSection}>
-  <JarvisOrb />
+  <JarvisOrb compact />
 </div>
       <header style={s.header}>
         <a href="/" style={s.home}>
@@ -694,12 +694,10 @@ const s: Record<string, React.CSSProperties> = {
   },
 
   orbSection: {
+  position: "relative",
   width: "100%",
+  height: "220px",
   flexShrink: 0,
-  display: "flex",
-  justifyContent: "center",
-  alignItems: "center",
-  maxHeight: "220px",
   overflow: "hidden",
   },
 };
