@@ -1014,13 +1014,6 @@ const s: Record<string, CSSProperties> = {
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
-  orbSection: {
-    position: "relative",
-    width: "100%",
-    height: "105px",
-    flexShrink: 0,
-    overflow: "hidden",
-  },
   voiceToggle: {
     border: "1px solid #34404e",
     borderRadius: "9px",
