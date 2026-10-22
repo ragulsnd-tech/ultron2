@@ -293,14 +293,17 @@ export default function ChatPage() {
     if (!prompt || loading) return;
 
     setInput("");
+
+    if (await openCommand(prompt)) return;
+
     setLoading(true);
 
-    const userMessage = {
-      role: "user" as const,
-      content: prompt,
+    const userMessage: Message = {
+      role: "user",
+      text: prompt,
     };
 
-    updateMessages([...messages, userMessage]);
+    updateMessages((old) => [...old, userMessage]);
 
     try {
       const response = await fetch("/api/chat", {
@@ -308,7 +311,10 @@ export default function ChatPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: prompt,
-          messages: [...messages, userMessage],
+          messages: [...messages, userMessage].map((m) => ({
+            role: m.role,
+            content: m.text,
+          })),
           chatId: activeId,
         }),
       });
@@ -320,32 +326,33 @@ export default function ChatPage() {
       }
 
       const reply =
-        data.reply || data.response || data.message || "No reply received.";
+        data.reply || data.response || data.message || data.text;
 
-      updateMessages([
-        ...messages,
-        userMessage,
-        { role: "assistant" as const, content: reply },
+      if (typeof reply !== "string" || !reply.trim()) {
+        throw new Error("JARVIS reply empty");
+      }
+
+      updateMessages((old) => [
+        ...old,
+        { role: "assistant", text: reply },
       ]);
 
-      if (voiceOutput) speak(reply);
+      if (voiceOnRef.current) speak(reply);
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Request failed";
 
-      updateMessages([
-        ...messages,
-        userMessage,
+      updateMessages((old) => [
+        ...old,
         {
-          role: "assistant" as const,
-          content: `JARVIS error: ${errorMessage}`,
+          role: "assistant",
+          text: `JARVIS error: ${errorMessage}`,
         },
       ]);
     } finally {
       setLoading(false);
     }
-  };
-
+  }; 
   const startListening = () => {
     const SpeechRecognition =
       (window as any).SpeechRecognition ||
