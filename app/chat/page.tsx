@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -67,16 +68,13 @@ export default function ChatPage() {
 
   useEffect(() => {
     mountedRef.current = true;
-
     let initialSessions: ChatSession[] = [];
     let initialActiveId = "";
 
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
-
       if (saved) {
         const parsed: unknown = JSON.parse(saved);
-
         if (
           Array.isArray(parsed) &&
           parsed.every(
@@ -97,7 +95,6 @@ export default function ChatPage() {
           initialSessions = parsed as ChatSession[];
         }
       }
-
       initialActiveId = localStorage.getItem(ACTIVE_KEY) || "";
     } catch {}
 
@@ -118,11 +115,9 @@ export default function ChatPage() {
     return () => {
       mountedRef.current = false;
       voiceModeRef.current = false;
-
       try {
         recognitionRef.current?.stop();
       } catch {}
-
       if ("speechSynthesis" in window) {
         window.speechSynthesis.cancel();
       }
@@ -131,7 +126,6 @@ export default function ChatPage() {
 
   useEffect(() => {
     if (!ready) return;
-
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
       localStorage.setItem(ACTIVE_KEY, activeId);
@@ -148,26 +142,22 @@ export default function ChatPage() {
   const updateMessages = useCallback(
     (updater: (old: Message[]) => Message[]) => {
       setSessions((oldSessions) =>
-        oldSessions.map((chat) =>
-          chat.id === activeId
-            ? (() => {
-                const nextMessages = updater(chat.messages);
-                const firstUser = nextMessages.find(
-                  (message) => message.role === "user"
-                );
-
-                return {
-                  ...chat,
-                  messages: nextMessages,
-                  title:
-                    chat.title === "New chat" && firstUser
-                      ? firstUser.text.slice(0, 36) +
-                        (firstUser.text.length > 36 ? "…" : "")
-                      : chat.title,
-                };
-              })()
-            : chat
-        )
+        oldSessions.map((chat) => {
+          if (chat.id !== activeId) return chat;
+          const nextMessages = updater(chat.messages);
+          const firstUser = nextMessages.find(
+            (message) => message.role === "user"
+          );
+          return {
+            ...chat,
+            messages: nextMessages,
+            title:
+              chat.title === "New chat" && firstUser
+                ? firstUser.text.slice(0, 36) +
+                  (firstUser.text.length > 36 ? "…" : "")
+                : chat.title,
+          };
+        })
       );
     },
     [activeId]
@@ -175,48 +165,34 @@ export default function ChatPage() {
 
   const speak = useCallback((text: string) => {
     if (!voiceOnRef.current || !("speechSynthesis" in window)) return;
-
     window.speechSynthesis.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
     const voices = window.speechSynthesis.getVoices();
-
-    // Prefer voices commonly labelled as male.
-    // Voice names and availability depend on the device/browser.
-    const maleVoicePatterns =
+    const malePattern =
       /male|david|mark|guy|daniel|james|aaron|george|rishi|fred|alex/i;
 
-    const preferredVoice =
+    const preferred =
       voices.find(
-        (voice) =>
-          maleVoicePatterns.test(voice.name) &&
-          /en-IN|en-GB|en-US/i.test(voice.lang)
+        (v) => malePattern.test(v.name) &&
+          /en-IN|en-GB|en-US/i.test(v.lang)
       ) ||
       voices.find(
-        (voice) =>
-          maleVoicePatterns.test(voice.name) &&
-          voice.lang.toLowerCase().startsWith("ta")
+        (v) => v.lang.toLowerCase() === "en-in" ||
+          v.lang.toLowerCase() === "en-gb" ||
+          v.lang.toLowerCase() === "en-us"
       ) ||
-      voices.find(
-        (voice) =>
-          voice.lang.toLowerCase() === "en-in" ||
-          voice.lang.toLowerCase() === "en-gb" ||
-          voice.lang.toLowerCase() === "en-us"
-      ) ||
-      voices.find((voice) =>
-        voice.lang.toLowerCase().startsWith("ta")
-      );
+      voices.find((v) => v.lang.toLowerCase().startsWith("ta"));
 
-    if (preferredVoice) {
-      utterance.voice = preferredVoice;
-      utterance.lang = preferredVoice.lang;
+    if (preferred) {
+      utterance.voice = preferred;
+      utterance.lang = preferred.lang;
     } else {
       utterance.lang = "en-IN";
     }
 
-    utterance.rate = 0.92;
-    utterance.pitch = 0.82;
-
+    utterance.rate = 0.88;
+    utterance.pitch = 0.72;
     window.speechSynthesis.speak(utterance);
   }, []);
 
@@ -229,13 +205,11 @@ export default function ChatPage() {
 
     if (searchMatch) {
       const query = searchMatch[1].trim();
-
       window.open(
         "https://www.google.com/search?q=" + encodeURIComponent(query),
         "_blank",
         "noopener,noreferrer"
       );
-
       updateMessages((old) => [
         ...old,
         {
@@ -243,7 +217,6 @@ export default function ChatPage() {
           text: `Google-la "${query}" search open panna try panninen.`,
         },
       ]);
-
       setStatus("Google search opened");
       return true;
     }
@@ -262,11 +235,8 @@ export default function ChatPage() {
         instagram: "https://www.instagram.com",
         "whatsapp web": "https://web.whatsapp.com",
       };
-
       const site = websiteMatch[1].toLowerCase();
-
       window.open(sites[site], "_blank", "noopener,noreferrer");
-
       updateMessages((old) => [
         ...old,
         {
@@ -274,7 +244,6 @@ export default function ChatPage() {
           text: `${site} website open panna try panninen.`,
         },
       ]);
-
       setStatus("Website command completed");
       return true;
     }
@@ -285,19 +254,14 @@ export default function ChatPage() {
 
     if (appMatch) {
       const app = appMatch[1].toLowerCase();
-
       try {
         const response = await fetch("http://127.0.0.1:3210/open-app", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ app }),
         });
-
         const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.error || "App open failed");
-        }
+        if (!response.ok) throw new Error(data.error || "App open failed");
 
         updateMessages((old) => [
           ...old,
@@ -317,316 +281,189 @@ export default function ChatPage() {
           },
         ]);
       }
-
       setStatus("App command checked");
       return true;
     }
 
     return false;
-  }
-
-  async function sendMessage(text = input) {
-    const question = text.trim();
-
-    if (!question || loadingRef.current || !activeId) return;
-
-    updateMessages((old) => [
-      ...old,
-      { role: "user", text: question },
-    ]);
+    }
+  
+  const sendMessage = async (text?: string) => {
+    const prompt = (text ?? input).trim();
+    if (!prompt || loading) return;
 
     setInput("");
-    loadingRef.current = true;
     setLoading(true);
-    setStatus("JARVIS thinking...");
+
+    const userMessage = {
+      role: "user" as const,
+      content: prompt,
+    };
+
+    updateMessages([...messages, userMessage]);
 
     try {
-      const handled = await openCommand(question);
-
-      if (handled) return;
-
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: question }),
+        body: JSON.stringify({
+          message: prompt,
+          messages: [...messages, userMessage],
+          chatId: activeId,
+        }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "AI request failed");
+        throw new Error(data.error || "Something went wrong");
       }
 
-      const reply = String(data.reply || "Reply kidaikkala.");
+      const reply =
+        data.reply || data.response || data.message || "No reply received.";
 
-      updateMessages((old) => [
-        ...old,
-        { role: "assistant", text: reply },
+      updateMessages([
+        ...messages,
+        userMessage,
+        { role: "assistant" as const, content: reply },
       ]);
 
-      speak(reply);
-      setStatus("JARVIS ready");
+      if (voiceOutput) speak(reply);
     } catch (error) {
       const errorMessage =
-        error instanceof Error ? error.message : "Something went wrong.";
+        error instanceof Error ? error.message : "Request failed";
 
-      updateMessages((old) => [
-        ...old,
-        { role: "assistant", text: "Error: " + errorMessage },
+      updateMessages([
+        ...messages,
+        userMessage,
+        {
+          role: "assistant" as const,
+          content: `JARVIS error: ${errorMessage}`,
+        },
       ]);
-
-      setStatus("Check API key or server");
     } finally {
-      loadingRef.current = false;
       setLoading(false);
     }
-  }
+  };
 
-  const startListening = useCallback(() => {
-    if (!mountedRef.current) return;
+  const startListening = () => {
+    const SpeechRecognition =
+      (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition;
 
-    const browser = window as Window & {
-      SpeechRecognition?: new () => VoiceRecognition;
-      webkitSpeechRecognition?: new () => VoiceRecognition;
-    };
-
-    const SpeechAPI =
-      browser.SpeechRecognition || browser.webkitSpeechRecognition;
-
-    if (!SpeechAPI) {
-      setStatus("Voice unsupported. Try Chrome.");
-      voiceModeRef.current = false;
-      setVoiceMode(false);
+    if (!SpeechRecognition) {
+      alert("Voice input is not supported in this browser. Try Chrome.");
       return;
     }
 
-    try {
-      recognitionRef.current?.stop();
-    } catch {}
-
-    const recognition = new SpeechAPI();
-
-    recognition.lang = "ta-IN";
+    const recognition = new SpeechRecognition();
+    recognition.lang = "en-IN";
     recognition.continuous = false;
     recognition.interimResults = false;
 
-    recognition.onstart = () => {
-      if (!mountedRef.current) return;
-      setListening(true);
-      setStatus("Listening...");
+    recognition.onstart = () => setListening(true);
+    recognition.onend = () => setListening(false);
+
+    recognition.onerror = () => {
+      setListening(false);
     };
 
     recognition.onresult = (event: any) => {
-      const heard = String(
-        event.results?.[0]?.[0]?.transcript || ""
-      ).trim();
-
-      if (!heard) return;
-
-      const command = heard.toLowerCase().replace(/[.!?,]/g, "").trim();
-
-      if (
-        /^(stop listening|stop voice mode|exit voice mode)$/.test(command)
-      ) {
-        voiceModeRef.current = false;
-        setVoiceMode(false);
-        setStatus("Voice mode stopped");
-        return;
-      }
-
-      if (/^(voice off|mute voice)$/.test(command)) {
-        voiceOnRef.current = false;
-        setVoiceOn(false);
-        window.speechSynthesis?.cancel();
-        setStatus("Voice output OFF");
-        return;
-      }
-
-      if (/^(voice on|unmute voice)$/.test(command)) {
-        voiceOnRef.current = true;
-        setVoiceOn(true);
-        setStatus("Voice output ON");
-        return;
-      }
-
-      void sendMessage(heard);
+      const transcript = event.results[0][0].transcript;
+      setInput(transcript);
+      void sendMessage(transcript);
     };
 
-    recognition.onerror = (event: any) => {
-      if (!mountedRef.current) return;
+    recognition.start();
+  };
 
-      setListening(false);
+  const toggleVoiceMode = () => {
+    setVoiceMode((previous) => !previous);
+  };
 
-      if (event.error !== "no-speech" && event.error !== "aborted") {
-        setStatus("Mic error: " + event.error);
-      }
-    };
+  const toggleVoiceOutput = () => {
+    setVoiceOutput((previous) => !previous);
+  };
 
-    recognition.onend = () => {
-      if (!mountedRef.current) return;
-
-      setListening(false);
-
-      if (voiceModeRef.current) {
-        window.setTimeout(() => {
-          if (mountedRef.current && voiceModeRef.current) {
-            recognitionRef.current = null;
-            startListeningRef.current();
-          }
-        }, 900);
-      } else {
-        setStatus("JARVIS ready");
-      }
-    };
-
-    recognitionRef.current = recognition;
-
-    try {
-      recognition.start();
-    } catch {
-      setStatus("Tap Start Voice again");
-    }
-  }, [speak]);
-
-  useEffect(() => {
-    startListeningRef.current = startListening;
-  }, [startListening]);
-
-  function toggleVoiceMode() {
-    if (voiceModeRef.current) {
-      voiceModeRef.current = false;
-      setVoiceMode(false);
-
-      try {
-        recognitionRef.current?.stop();
-      } catch {}
-
-      setListening(false);
-      setStatus("Voice mode stopped");
-    } else {
-      voiceModeRef.current = true;
-      setVoiceMode(true);
-      setStatus("Starting voice...");
-      startListeningRef.current();
-    }
-  }
-
-  function toggleVoiceOutput() {
-    const next = !voiceOnRef.current;
-
-    voiceOnRef.current = next;
-    setVoiceOn(next);
-
-    if (!next && "speechSynthesis" in window) {
-      window.speechSynthesis.cancel();
-    }
-
-    setStatus(next ? "Voice output ON" : "Voice output OFF");
-  }
-
-  function newChat() {
-    if (loadingRef.current) return;
-
-    const chat = makeChat();
-
-    setSessions((old) => [chat, ...old]);
-    setActiveId(chat.id);
-    setInput("");
-    setSidebarOpen(false);
-    setStatus("New chat started");
-  }
-
-  function selectChat(id: string) {
-    if (loadingRef.current) return;
+  const newChat = () => {
+    const id = Date.now().toString();
 
     setActiveId(id);
+    setMessages([]);
+    setInput("");
+    setChatHistory((previous) => [
+      { id, title: "New chat" },
+      ...previous,
+    ]);
     setSidebarOpen(false);
-    setStatus("Chat opened");
-  }
+  };
 
-  function deleteChat(id: string) {
-    if (loadingRef.current) return;
+  const selectChat = (chat: { id: string; title: string }) => {
+    setActiveId(chat.id);
+    setMessages([]);
+    setSidebarOpen(false);
+  };
 
-    const remaining = sessions.filter((chat) => chat.id !== id);
+  const deleteChat = (id: string) => {
+    setChatHistory((previous) =>
+      previous.filter((chat) => chat.id !== id)
+    );
 
-    if (!remaining.length) {
-      const chat = makeChat();
-      setSessions([chat]);
-      setActiveId(chat.id);
-    } else {
-      setSessions(remaining);
-
-      if (activeId === id) {
-        setActiveId(remaining[0].id);
-      }
+    if (activeId === id) {
+      setActiveId("");
+      setMessages([]);
     }
-
-    setStatus("Chat deleted");
-  }
+  };
 
   return (
-    <main style={s.page}>
+    <main style={s.app}>
+      {sidebarOpen && (
+        <div
+          style={s.backdrop}
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       <aside
         style={{
           ...s.sidebar,
-          position: "fixed",
-          top: 0,
-          bottom: 0,
-          left: sidebarOpen ? 0 : "-300px",
-          width: 260,
-          maxWidth: "85vw",
-          zIndex: 1000,
-          transition: "left 0.25s ease",
-          overflowY: "auto",
-          }}
-     >
-        <div style={s.sidebarTop}>
-          <div style={s.sidebarBrand}>
-            <span style={s.brandMark}>J</span>
+          left: sidebarOpen ? 0 : -280,
+        }}
+      >
+        <div style={s.sidebarHeader}>
+          <div style={s.brand}>
+            <span style={s.brandIcon}>J</span>
             <span>JARVIS</span>
           </div>
-
-          <button
-            type="button"
-            style={s.iconButton}
-            aria-label="Close sidebar"
-            onClick={() => setSidebarOpen(false)}
-          >
-            ✕
+          <button style={s.iconButton} onClick={newChat}>
+            ＋
           </button>
         </div>
 
-        <button type="button" style={s.newChatSide} onClick={newChat}>
-          <span>＋</span> New chat
+        <button style={s.newChatButton} onClick={newChat}>
+          ＋ New chat
         </button>
 
-        <div style={s.historyHeading}>RECENT CHATS</div>
+        <div style={s.historyTitle}>RECENT CHATS</div>
 
         <div style={s.historyList}>
-          {sessions.map((chat) => (
-            <div
-              key={chat.id}
-              style={{
-                ...s.historyItem,
-                ...(chat.id === activeId ? s.historyActive : {}),
-              }}
-            >
+          {chatHistory.map((chat) => (
+            <div key={chat.id} style={s.historyRow}>
               <button
-                type="button"
-                style={s.historySelect}
-                onClick={() => selectChat(chat.id)}
-                title={chat.title}
+                style={{
+                  ...s.historyButton,
+                  ...(activeId === chat.id ? s.activeHistory : {}),
+                }}
+                onClick={() => selectChat(chat)}
               >
-                <span style={s.historyIcon}>◷</span>
-                <span style={s.historyTitle}>{chat.title}</span>
+                <span style={s.historyDot}>●</span>
+                <span style={s.historyText}>{chat.title}</span>
               </button>
 
               <button
-                type="button"
                 style={s.deleteButton}
                 onClick={() => deleteChat(chat.id)}
-                aria-label={`Delete ${chat.title}`}
-                title="Delete chat"
+                aria-label="Delete chat"
               >
                 ×
               </button>
@@ -634,591 +471,564 @@ export default function ChatPage() {
           ))}
         </div>
 
-        <div style={s.sidebarBottom}>
-          <div style={s.profileCircle}>J</div>
-          <div>
-            <div style={s.profileName}>JARVIS Assistant</div>
-            <div style={s.profileStatus}>AI chat enabled</div>
-          </div>
-        </div>
+        <div style={s.sidebarFooter}>JARVIS AI ASSISTANT</div>
       </aside>
 
-      {sidebarOpen && (
-        <button
-          type="button"
-          style={s.backdrop}
-          aria-label="Close sidebar overlay"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      <section style={s.mainPanel}>
+      <section style={s.main}>
         <header style={s.header}>
-          <div style={s.headerLeft}>
-            <button
-              type="button"
-              style={s.menuButton}
-              onClick={() => setSidebarOpen(true)}
-              aria-label="Open sidebar"
-            >
-              ☰
-            </button>
+          <button
+            style={s.iconButton}
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Open sidebar"
+          >
+            ☰
+          </button>
 
-            <div>
-              <div style={s.headerTitle}>JARVIS <span>AI</span></div>
-              <div style={s.headerSubtitle}>
-                {listening ? "Listening to you..." : status}
-              </div>
+          <div style={s.headerInfo}>
+            <div style={s.headerTitle}>JARVIS</div>
+            <div style={s.headerSubtitle}>
+              {voiceMode ? "Voice mode" : "AI assistant"}
             </div>
           </div>
 
           <button
-            type="button"
             style={{
-              ...s.voiceToggle,
-              ...(voiceOn ? s.voiceToggleOn : {}),
+              ...s.voiceButton,
+              ...(voiceMode ? s.voiceButtonActive : {}),
             }}
-            onClick={toggleVoiceOutput}
+            onClick={toggleVoiceMode}
           >
-            {voiceOn ? "🔊 Voice ON" : "🔇 Voice OFF"}
+            {voiceMode ? "Text mode" : "🎙 Voice"}
           </button>
         </header>
 
-        <section style={s.messages} aria-live="polite" aria-label="Chat messages">
-          {messages.length <= 1 && (
+        {voiceMode && (
+          <div style={s.voicePanel}>
+            <div style={s.orbOuter}>
+              <div style={s.orbInner}>J</div>
+            </div>
+
+            <div style={s.voiceStatus}>
+              {listening
+                ? "LISTENING..."
+                : loading
+                  ? "THINKING..."
+                  : "JARVIS VOICE MODE"}
+            </div>
+
+            <button
+              style={s.listenButton}
+              onClick={startListening}
+              disabled={loading || listening}
+            >
+              {listening ? "Listening..." : "🎙 Speak to JARVIS"}
+            </button>
+
+            <button
+              style={s.outputButton}
+              onClick={toggleVoiceOutput}
+            >
+              Voice reply: {voiceOutput ? "ON" : "OFF"}
+            </button>
+          </div>
+        )}
+
+        <div style={s.messages}>
+          {messages.length === 0 && (
             <div style={s.welcome}>
-              <div style={s.welcomeBadge}>✦</div>
+              <div style={s.welcomeIcon}>J</div>
               <h1 style={s.welcomeTitle}>How can I help you?</h1>
               <p style={s.welcomeText}>
-                Ask anything, search the web, or talk to JARVIS.
+                Ask anything. JARVIS is ready.
               </p>
 
               <div style={s.suggestions}>
                 {[
                   "Explain artificial intelligence",
-                  "Python na enna?",
-                  "Open YouTube",
+                  "Write a Python program",
+                  "Give me today's study plan",
                 ].map((suggestion) => (
                   <button
                     key={suggestion}
-                    type="button"
                     style={s.suggestion}
                     onClick={() => void sendMessage(suggestion)}
-                    disabled={loading}
                   >
-                    <span>✧</span> {suggestion}
+                    {suggestion} →
                   </button>
                 ))}
               </div>
             </div>
           )}
 
-          {messages.map((message, index) => {
-            if (index === 0 && message.role === "assistant") return null;
+          {messages.map((message, index) => (
+            <div
+              key={`${index}-${message.role}`}
+              style={{
+                ...s.messageRow,
+                ...(message.role === "user"
+                  ? s.userMessageRow
+                  : {}),
+              }}
+            >
+              {message.role === "assistant" && (
+                <div style={s.avatar}>J</div>
+              )}
 
-            const isUser = message.role === "user";
-
-            return (
               <div
-                key={`${activeId}-${index}`}
                 style={{
-                  ...s.messageRow,
-                  justifyContent: isUser ? "flex-end" : "flex-start",
+                  ...s.messageBubble,
+                  ...(message.role === "user"
+                    ? s.userBubble
+                    : s.assistantBubble),
                 }}
               >
-                {!isUser && <div style={s.assistantAvatar}>J</div>}
-
-                <div
-                  style={{
-                    ...s.message,
-                    ...(isUser ? s.userMessage : s.assistantMessage),
-                  }}
-                >
-                  <div style={s.messageText}>{message.text}</div>
-
-                  {!isUser && (
-                    <button
-                      type="button"
-                      style={s.speakButton}
-                      onClick={() => speak(message.text)}
-                      title="Read response aloud"
-                    >
-                        Listen
-                    </button>
-                  )}
+                <div style={s.messageRole}>
+                  {message.role === "user" ? "You" : "JARVIS"}
                 </div>
-              </div>
-            );
-          })}
-
-            {loading && (
-            <div style={s.messageRow}>
-              <div style={s.assistantAvatar}>J</div>
-              <div style={s.thinking}>
-                <span style={s.thinkingDot} />
-                <span style={s.thinkingDot} />
-                <span style={s.thinkingDot} />
-                <span style={s.thinkingText}>JARVIS is thinking...</span>
+                <div style={s.messageContent}>{message.content}</div>
               </div>
             </div>
+          ))}
+
+          {loading && (
+            <div style={s.loadingText}>JARVIS is thinking...</div>
           )}
 
-          <div ref={bottomRef} />
-        </section>
+          <div ref={messagesEndRef} />
+        </div>
 
         <footer style={s.composerArea}>
-          <button
-            type="button"
-            style={{
-              ...s.voiceModeButton,
-              ...(voiceMode ? s.voiceModeActive : {}),
-            }}
-            onClick={toggleVoiceMode}
-          >
-            {voiceMode ? "Stop Voice Mode" : "🎙 Start Voice Mode"}
-          </button>
-
-          <form
-            style={s.composer}
-            onSubmit={(event) => {
-              event.preventDefault();
-              void sendMessage();
-            }}
-          >
-            <input
-              style={s.input}
+          <div style={s.composer}>
+            <textarea
+              style={s.textarea}
               value={input}
               onChange={(event) => setInput(event.target.value)}
+              onKeyDown={(event) => {
+                if (
+                  event.key === "Enter" &&
+                  !event.shiftKey
+                ) {
+                  event.preventDefault();
+                  void sendMessage();
+                }
+              }}
               placeholder="Message JARVIS..."
-              aria-label="Message JARVIS"
-              autoComplete="off"
+              rows={1}
             />
 
             <button
-              type="submit"
-              style={{
-                ...s.sendButton,
-                opacity: loading || !input.trim() ? 0.45 : 1,
-              }}
+              style={s.micButton}
+              onClick={startListening}
+              title="Voice input"
+              disabled={loading || listening}
+            >
+              🎙
+            </button>
+
+            <button
+              style={s.sendButton}
+              onClick={() => void sendMessage()}
               disabled={loading || !input.trim()}
-              aria-label="Send message"
             >
               ➤
             </button>
-          </form>
+          </div>
 
-          <div style={s.footerNote}>
-            JARVIS can make mistakes. Check important information.
+          <div style={s.disclaimer}>
+            JARVIS can make mistakes. Verify important information.
           </div>
         </footer>
       </section>
+
+      <style jsx>{`
+        @keyframes orbPulse {
+          0%, 100% {
+            transform: scale(0.96);
+            box-shadow: 0 0 25px #168bff66, 0 0 60px #7c3aed44;
+          }
+          50% {
+            transform: scale(1.04);
+            box-shadow: 0 0 40px #168bffaa, 0 0 90px #7c3aed88;
+          }
+        }
+        textarea {
+          font: inherit;
+        }
+        button:disabled {
+          opacity: 0.45;
+          cursor: not-allowed;
+        }
+      `}</style>
     </main>
   );
 }
 
-const s: Record<string, CSSProperties> = {
-  page: {
+const s: Record<string, React.CSSProperties> = {
+  app: {
     display: "flex",
-    width: "100%",
     height: "100dvh",
-    minHeight: "500px",
+    width: "100%",
     overflow: "hidden",
-    background: "#0b0d12",
-    color: "#edf2f7",
-    fontFamily: "Arial, Helvetica, sans-serif",
+    background: "#101114",
+    color: "#f4f4f5",
+    fontFamily: "Arial, sans-serif",
+    position: "relative",
+  },
+  backdrop: {
+    position: "fixed",
+    inset: 0,
+    background: "#0009",
+    zIndex: 900,
   },
   sidebar: {
-    width: "260px",
-    minWidth: "260px",
-    height: "100%",
+    position: "fixed",
+    top: 0,
+    bottom: 0,
+    width: 260,
+    background: "#17181c",
+    borderRight: "1px solid #292a30",
     display: "flex",
     flexDirection: "column",
-    background: "#11151d",
-    borderRight: "1px solid #252b36",
-    padding: "14px 10px",
+    padding: 12,
     boxSizing: "border-box",
-    zIndex: 20,
+    zIndex: 1000,
+    transition: "left 0.2s ease",
   },
-  sidebarTop: {
+  sidebarHeader: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    padding: "4px 7px 20px",
+    padding: "8px 4px 18px",
   },
-  sidebarBrand: {
+  brand: {
     display: "flex",
     alignItems: "center",
-    gap: "10px",
-    fontSize: "15px",
-    fontWeight: 800,
-    letterSpacing: "2px",
+    gap: 10,
+    fontWeight: 700,
+    letterSpacing: 2,
   },
-  brandMark: {
+  brandIcon: {
     display: "grid",
     placeItems: "center",
-    width: "32px",
-    height: "32px",
-    borderRadius: "11px",
-    color: "#a5f3fc",
-    background: "#12303b",
-    border: "1px solid #236072",
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    background: "linear-gradient(135deg,#168bff,#8b5cf6)",
   },
   iconButton: {
-    border: 0,
     background: "transparent",
-    color: "#a9b5c5",
-    fontSize: "16px",
-    padding: "7px",
+    color: "#eee",
+    border: "1px solid #35363d",
+    borderRadius: 9,
+    padding: "8px 11px",
     cursor: "pointer",
   },
-  newChatSide: {
-    display: "flex",
-    alignItems: "center",
-    gap: "10px",
+  newChatButton: {
     width: "100%",
-    padding: "12px",
-    border: "1px solid #34404e",
-    borderRadius: "10px",
-    background: "#1b222d",
-    color: "#f1f5f9",
+    padding: 12,
+    borderRadius: 10,
+    border: "1px solid #34353c",
+    color: "#f4f4f5",
+    background: "#222329",
     textAlign: "left",
-    fontSize: "14px",
     cursor: "pointer",
   },
-  historyHeading: {
-    color: "#778496",
-    fontSize: "10px",
-    fontWeight: 700,
-    letterSpacing: "1.5px",
-    padding: "24px 10px 10px",
+  historyTitle: {
+    color: "#858691",
+    fontSize: 11,
+    letterSpacing: 1.5,
+    margin: "24px 8px 10px",
   },
   historyList: {
     flex: 1,
-    minHeight: 0,
     overflowY: "auto",
   },
-  historyItem: {
+  historyRow: {
     display: "flex",
     alignItems: "center",
-    borderRadius: "8px",
-    marginBottom: "4px",
-    color: "#c6d0dc",
+    gap: 3,
+    marginBottom: 5,
   },
-  historyActive: {
-    background: "#222b37",
-    color: "#ffffff",
-  },
-  historySelect: {
+  historyButton: {
     display: "flex",
     alignItems: "center",
-    gap: "9px",
+    gap: 8,
     flex: 1,
     minWidth: 0,
-    border: 0,
+    padding: 10,
+    border: "none",
+    borderRadius: 8,
+    color: "#d4d4d8",
     background: "transparent",
-    color: "inherit",
-    padding: "10px 8px",
     textAlign: "left",
     cursor: "pointer",
   },
-  historyIcon: {
-    color: "#8c9bad",
-    fontSize: "16px",
-    flexShrink: 0,
+  activeHistory: {
+    background: "#2a2b33",
   },
-  historyTitle: {
-    fontSize: "12px",
+  historyDot: {
+    color: "#818cf8",
+    fontSize: 9,
+  },
+  historyText: {
     overflow: "hidden",
-    textOverflow: "ellipsis",
     whiteSpace: "nowrap",
+    textOverflow: "ellipsis",
+    fontSize: 13,
   },
   deleteButton: {
-    border: 0,
+    color: "#a1a1aa",
     background: "transparent",
-    color: "#8290a1",
-    fontSize: "20px",
-    padding: "4px 8px",
+    border: "none",
     cursor: "pointer",
+    padding: 7,
+    fontSize: 18,
   },
-  sidebarBottom: {
-    display: "flex",
-    alignItems: "center",
-    gap: "10px",
-    borderTop: "1px solid #28303c",
+  sidebarFooter: {
+    borderTop: "1px solid #2b2c32",
     padding: "15px 5px 5px",
+    color: "#71717a",
+    fontSize: 10,
+    letterSpacing: 1.5,
   },
-  profileCircle: {
-    display: "grid",
-    placeItems: "center",
-    width: "34px",
-    height: "34px",
-    borderRadius: "50%",
-    background: "#164e63",
-    color: "#cffafe",
-    fontWeight: 800,
-  },
-  profileName: { fontSize: "12px", fontWeight: 700 },
-  profileStatus: { color: "#8290a1", fontSize: "10px", marginTop: "4px" },
-  backdrop: {
-    display: "none",
-  },
-  mainPanel: {
-    flex: 1,
-    minWidth: 0,
-    height: "100%",
+  main: {
     display: "flex",
     flexDirection: "column",
-    background:
-      "radial-gradient(ellipse at top, #111c29 0%, #0b0d12 50%, #0b0d12 100%)",
+    width: "100%",
+    minWidth: 0,
+    height: "100%",
   },
   header: {
-    height: "68px",
+    height: 62,
     flexShrink: 0,
     display: "flex",
     alignItems: "center",
-    justifyContent: "space-between",
-    gap: "10px",
-    padding: "0 22px",
-    borderBottom: "1px solid #242b36",
-    background: "rgba(11,13,18,0.92)",
+    gap: 12,
+    padding: "0 16px",
+    borderBottom: "1px solid #292a30",
+    background: "#101114",
   },
-  headerLeft: {
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-    minWidth: 0,
-  },
-  menuButton: {
-    display: "none",
-    border: "1px solid #303947",
-    borderRadius: "8px",
-    padding: "8px 10px",
-    color: "#e2e8f0",
-    background: "#171d27",
-    cursor: "pointer",
+  headerInfo: {
+    flex: 1,
   },
   headerTitle: {
-    fontSize: "15px",
-    fontWeight: 800,
-    letterSpacing: "1.4px",
+    fontSize: 15,
+    fontWeight: 700,
+    letterSpacing: 1.5,
   },
   headerSubtitle: {
-    marginTop: "5px",
-    color: "#8493a5",
-    fontSize: "11px",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
+    color: "#92939e",
+    fontSize: 12,
+    marginTop: 3,
   },
-  voiceToggle: {
-    border: "1px solid #34404e",
-    borderRadius: "9px",
-    padding: "9px 11px",
-    background: "#181e28",
-    color: "#cbd5e1",
-    fontSize: "11px",
-    whiteSpace: "nowrap",
+  voiceButton: {
+    color: "#e4e4e7",
+    background: "#222329",
+    border: "1px solid #373841",
+    borderRadius: 10,
+    padding: "9px 12px",
     cursor: "pointer",
   },
-  voiceToggleOn: {
-    borderColor: "#236072",
-    color: "#a5f3fc",
-    background: "#10232d",
+  voiceButtonActive: {
+    background: "#312e81",
+    borderColor: "#6366f1",
+  },
+  voicePanel: {
+    flexShrink: 0,
+    display: "flex",
+    alignItems: "center",
+    flexDirection: "column",
+    gap: 12,
+    padding: "22px 12px 10px",
+    borderBottom: "1px solid #292a30",
+  },
+  orbOuter: {
+    width: 94,
+    height: 94,
+    display: "grid",
+    placeItems: "center",
+    borderRadius: "50%",
+    background: "radial-gradient(circle at 30% 25%,#9bdcff,#168bff 38%,#4c1d95 75%,#101114)",
+    animation: "orbPulse 2.4s ease-in-out infinite",
+  },
+  orbInner: {
+    width: 58,
+    height: 58,
+    display: "grid",
+    placeItems: "center",
+    borderRadius: "50%",
+    color: "white",
+    fontSize: 27,
+    fontWeight: 700,
+    background: "radial-gradient(circle at 35% 25%,#60a5fa,#1e1b4b 75%)",
+    border: "1px solid #a5d8ff88",
+  },
+  voiceStatus: {
+    fontSize: 11,
+    letterSpacing: 2,
+    color: "#a5b4fc",
+  },
+  listenButton: {
+    border: "1px solid #3b82f6",
+    background: "#1d4ed8",
+    color: "white",
+    borderRadius: 10,
+    padding: "10px 16px",
+    cursor: "pointer",
+  },
+  outputButton: {
+    color: "#c4b5fd",
+    background: "transparent",
+    border: "none",
+    padding: 6,
+    cursor: "pointer",
   },
   messages: {
     flex: 1,
     minHeight: 0,
     overflowY: "auto",
-    display: "flex",
-    flexDirection: "column",
-    gap: "18px",
-    padding: "14px clamp(14px, 5vw, 70px) 25px",
-    boxSizing: "border-box",
+    padding: "24px 16px",
   },
   welcome: {
-    width: "100%",
-    maxWidth: "650px",
-    margin: "auto",
+    maxWidth: 620,
+    margin: "8vh auto 0",
     textAlign: "center",
-    padding: "10px 0 25px",
   },
-  welcomeBadge: {
+  welcomeIcon: {
+    width: 54,
+    height: 54,
     display: "grid",
     placeItems: "center",
-    width: "54px",
-    height: "54px",
     margin: "0 auto 18px",
-    borderRadius: "18px",
-    border: "1px solid #236072",
-    background: "#102833",
-    color: "#a5f3fc",
-    fontSize: "26px",
-    boxShadow: "0 0 30px #0e749020",
+    borderRadius: 18,
+    fontSize: 25,
+    fontWeight: 700,
+    background: "linear-gradient(135deg,#168bff,#8b5cf6)",
   },
   welcomeTitle: {
-    margin: "0",
-    fontSize: "clamp(23px, 4vw, 32px)",
-    letterSpacing: "-0.8px",
+    fontSize: 25,
+    margin: "0 0 10px",
   },
   welcomeText: {
-    margin: "12px 0 24px",
-    color: "#8b9aab",
-    fontSize: "14px",
-    lineHeight: 1.6,
+    color: "#a1a1aa",
+    fontSize: 14,
   },
   suggestions: {
-    display: "flex",
-    justifyContent: "center",
-    flexWrap: "wrap",
-    gap: "9px",
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))",
+    gap: 10,
+    marginTop: 28,
   },
   suggestion: {
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-    border: "1px solid #303a48",
-    borderRadius: "12px",
-    padding: "11px 13px",
-    background: "#141a23",
-    color: "#d2dce7",
-    fontSize: "12px",
+    background: "#191a1f",
+    color: "#d4d4d8",
+    border: "1px solid #303139",
+    borderRadius: 12,
+    padding: 14,
+    textAlign: "left",
     cursor: "pointer",
   },
   messageRow: {
     display: "flex",
+    gap: 10,
+    maxWidth: 820,
+    margin: "0 auto 22px",
     alignItems: "flex-start",
-    gap: "10px",
-    width: "100%",
   },
-  assistantAvatar: {
+  userMessageRow: {
+    justifyContent: "flex-end",
+  },
+  avatar: {
+    width: 30,
+    height: 30,
+    flexShrink: 0,
     display: "grid",
     placeItems: "center",
-    width: "30px",
-    height: "30px",
-    flexShrink: 0,
-    borderRadius: "10px",
-    border: "1px solid #236072",
-    background: "#102833",
-    color: "#a5f3fc",
-    fontWeight: 800,
-    fontSize: "13px",
+    borderRadius: 9,
+    background: "linear-gradient(135deg,#168bff,#8b5cf6)",
+    fontWeight: 700,
+    fontSize: 13,
   },
-  message: {
-    maxWidth: "min(85%, 720px)",
-    padding: "13px 15px",
-    borderRadius: "15px",
+  messageBubble: {
+    maxWidth: "85%",
+    padding: "12px 14px",
+    borderRadius: 14,
+    lineHeight: 1.6,
     overflowWrap: "anywhere",
-    lineHeight: 1.7,
   },
-  userMessage: {
-    background: "#183545",
-    border: "1px solid #245268",
-    color: "#edfaff",
-    borderTopRightRadius: "5px",
+  assistantBubble: {
+    background: "#191a1f",
+    border: "1px solid #2b2c33",
   },
-  assistantMessage: {
-    background: "#151a23",
-    border: "1px solid #282f3a",
-    color: "#e3e9f1",
-    borderTopLeftRadius: "5px",
+  userBubble: {
+    background: "#26344b",
+    border: "1px solid #354a68",
   },
-  messageText: {
+  messageRole: {
+    color: "#a5b4fc",
+    fontSize: 11,
+    fontWeight: 700,
+    marginBottom: 6,
+  },
+  messageContent: {
     whiteSpace: "pre-wrap",
-    fontSize: "14px",
+    fontSize: 14,
   },
-  speakButton: {
-    display: "block",
-    marginTop: "10px",
-    padding: "5px 8px",
-    border: "1px solid #354453",
-    borderRadius: "7px",
-    background: "transparent",
-    color: "#a5cbd9",
-    fontSize: "11px",
-    cursor: "pointer",
-  },
-  thinking: {
-    display: "flex",
-    alignItems: "center",
-    gap: "5px",
-    border: "1px solid #28313d",
-    background: "#151a23",
-    borderRadius: "12px",
-    padding: "13px",
-  },
-  thinkingDot: {
-    width: "6px",
-    height: "6px",
-    borderRadius: "50%",
-    background: "#67e8f9",
-  },
-  thinkingText: {
-    marginLeft: "6px",
-    color: "#9aabba",
-    fontSize: "12px",
+  loadingText: {
+    maxWidth: 820,
+    margin: "0 auto 15px",
+    color: "#a1a1aa",
+    fontSize: 13,
   },
   composerArea: {
-    width: "100%",
-    maxWidth: "950px",
-    boxSizing: "border-box",
-    margin: "0 auto",
-    padding: "8px clamp(12px, 4vw, 30px) 12px",
     flexShrink: 0,
-  },
-  voiceModeButton: {
-    display: "block",
-    margin: "0 auto 9px",
-    border: "1px solid #34404e",
-    borderRadius: "9px",
-    padding: "8px 13px",
-    background: "#171d27",
-    color: "#d2dce7",
-    fontSize: "11px",
-    cursor: "pointer",
-  },
-  voiceModeActive: {
-    background: "#3b1c25",
-    borderColor: "#9f3949",
-    color: "#fecdd3",
+    padding: "12px 16px 10px",
+    background: "#101114",
   },
   composer: {
     display: "flex",
-    alignItems: "center",
-    gap: "9px",
-    width: "100%",
-    border: "1px solid #35404d",
-    borderRadius: "16px",
-    padding: "7px",
-    background: "#171c25",
-    boxSizing: "border-box",
-    boxShadow: "0 8px 30px #00000025",
+    alignItems: "flex-end",
+    gap: 8,
+    maxWidth: 820,
+    margin: "0 auto",
+    padding: 8,
+    background: "#1b1c21",
+    border: "1px solid #393a43",
+    borderRadius: 16,
   },
-  input: {
+  textarea: {
     flex: 1,
     minWidth: 0,
-    border: 0,
+    maxHeight: 140,
+    resize: "vertical",
+    border: "none",
     outline: "none",
-    padding: "11px 10px",
+    color: "#f4f4f5",
     background: "transparent",
-    color: "#f1f5f9",
-    fontSize: "14px",
+    padding: "9px 6px",
+    fontSize: 14,
   },
-  sendButton: {
-    width: "40px",
-    height: "40px",
-    flexShrink: 0,
-    border: 0,
-    borderRadius: "11px",
-    background: "#0e7490",
-    color: "#ffffff",
-    fontSize: "20px",
+  micButton: {
+    border: "none",
+    background: "#2b2c33",
+    color: "#e4e4e7",
+    borderRadius: 10,
+    padding: "10px 12px",
     cursor: "pointer",
   },
-  footerNote: {
-    padding: "9px 0 0",
+  sendButton: {
+    border: "none",
+    background: "#2563eb",
+    color: "white",
+    borderRadius: 10,
+    padding: "10px 13px",
+    cursor: "pointer",
+  },
+  disclaimer: {
+    color: "#71717a",
+    fontSize: 10,
     textAlign: "center",
-    color: "#6f7d8d",
-    fontSize: "10px",
+    marginTop: 9,
   },
 };
-
+      
