@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -19,23 +18,22 @@ type VoiceRecognition = {
   onend: (() => void) | null;
   start: () => void;
   stop: () => void;
-  abort?: () => void;
+};
+
+const WELCOME: Message = {
+  role: "assistant",
+  text: "Vanakkam! Naan JARVIS. Enna help venum?",
 };
 
 export default function ChatPage() {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: "assistant",
-      text: "Vanakkam! Naan ULTRON. Enna help venum?",
-    },
-  ]);
-
+  const [messages, setMessages] = useState<Message[]>([WELCOME]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [voiceOn, setVoiceOn] = useState(true);
-  const [listening, setListening] = useState(false);
   const [voiceMode, setVoiceMode] = useState(false);
-  const [status, setStatus] = useState("ULTRON ready");
+  const [listening, setListening] = useState(false);
+  const [status, setStatus] = useState("JARVIS ready");
+  const [historyReady, setHistoryReady] = useState(false);
 
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const recognitionRef = useRef<VoiceRecognition | null>(null);
@@ -47,6 +45,28 @@ export default function ChatPage() {
 
   useEffect(() => {
     mountedRef.current = true;
+
+    try {
+      const saved = localStorage.getItem("jarvis-chat-history");
+
+      if (saved) {
+        const parsed: unknown = JSON.parse(saved);
+
+        if (
+          Array.isArray(parsed) &&
+          parsed.every(
+            (item) =>
+              item &&
+              (item.role === "user" || item.role === "assistant") &&
+              typeof item.text === "string"
+          )
+        ) {
+          setMessages(parsed as Message[]);
+        }
+      }
+    } catch {}
+
+    setHistoryReady(true);
 
     return () => {
       mountedRef.current = false;
@@ -63,200 +83,150 @@ export default function ChatPage() {
   }, []);
 
   useEffect(() => {
+    if (!historyReady) return;
+
+    try {
+      localStorage.setItem(
+        "jarvis-chat-history",
+        JSON.stringify(messages)
+      );
+    } catch {}
+  }, [messages, historyReady]);
+
+  useEffect(() => {
     bottomRef.current?.scrollIntoView({
       behavior: "smooth",
       block: "end",
     });
   }, [messages, loading]);
 
-  // ULTRON normal-ah pronounce aagum.
-  // Name-ai separate letters-ah maathala.
-  function speak(text: string) {
-    if (
-      !voiceOnRef.current ||
-      !("speechSynthesis" in window)
-    ) {
-      return;
-    }
+  const speak = useCallback((text: string) => {
+    if (!voiceOnRef.current || !("speechSynthesis" in window)) return;
 
     window.speechSynthesis.cancel();
 
-    const speech = new SpeechSynthesisUtterance(text);
-    speech.lang = "ta-IN";
-    speech.rate = 0.92;
-    speech.pitch = 0.85;
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "ta-IN";
+    utterance.rate = 0.95;
+    utterance.pitch = 0.9;
 
     const voices = window.speechSynthesis.getVoices();
 
-    const tamilVoices = voices.filter((voice) =>
-      voice.lang.toLowerCase().startsWith("ta")
-    );
-
-    // Voice name-la male indicator irundha first try pannum.
-    const preferredVoice = tamilVoices.find((voice) =>
-      /male|man|arun|kumar|ravi/i.test(voice.name)
-    );
-
-    speech.voice =
-      preferredVoice ||
-      tamilVoices[0] ||
-      voices.find((voice) =>
-        voice.lang.toLowerCase().startsWith("en-in")
-      ) ||
-      voices[0] ||
+    utterance.voice =
+      voices.find((v) => v.lang.toLowerCase().startsWith("ta")) ||
+      voices.find((v) => v.lang.toLowerCase().startsWith("en-in")) ||
       null;
 
-    window.speechSynthesis.speak(speech);
-  }
-
-  const startListening = useCallback(() => {
-    if (!mountedRef.current) return;
-
-    const SpeechAPI =
-      typeof window !== "undefined"
-        ? (window as any).SpeechRecognition ||
-          (window as any).webkitSpeechRecognition
-        : null;
-
-    if (!SpeechAPI) {
-      setStatus("Voice input unsupported. Try Android Chrome.");
-      setVoiceMode(false);
-      voiceModeRef.current = false;
-      return;
-    }
-
-    try {
-      recognitionRef.current?.stop();
-    } catch {}
-
-    const recognition: VoiceRecognition = new SpeechAPI();
-
-    recognition.lang = "ta-IN";
-    recognition.continuous = false;
-    recognition.interimResults = false;
-
-    recognition.onstart = () => {
-      if (!mountedRef.current) return;
-      setListening(true);
-      setStatus("Listening...");
-    };
-
-    recognition.onresult = (event: any) => {
-      const heard = String(
-        event.results?.[0]?.[0]?.transcript || ""
-      ).trim();
-
-      if (!heard) return;
-
-      const command = heard
-        .toLowerCase()
-        .replace(/[.!?,]/g, "")
-        .trim();
-
-      // Voice output OFF
-      if (/^(voice off|stop voice|mute voice)$/.test(command)) {
-        voiceOnRef.current = false;
-        setVoiceOn(false);
-
-        if ("speechSynthesis" in window) {
-          window.speechSynthesis.cancel();
-        }
-
-        setStatus("Voice output OFF");
-        return;
-      }
-
-      // Voice output ON
-      if (/^(voice on|start voice|unmute voice)$/.test(command)) {
-        voiceOnRef.current = true;
-        setVoiceOn(true);
-        setStatus("Voice output ON");
-        return;
-      }
-
-      // Stop continuous listening
-      if (
-        /^(stop listening|stop ultron|stop ul tron|exit voice mode)$/.test(
-          command
-        )
-      ) {
-        voiceModeRef.current = false;
-        setVoiceMode(false);
-        setStatus("Voice mode stopped");
-
-        try {
-          recognitionRef.current?.stop();
-        } catch {}
-
-        return;
-      }
-
-      // Start continuous listening
-      if (
-        /^(start listening|start ultron|start ul tron)$/.test(
-          command
-        )
-      ) {
-        voiceModeRef.current = true;
-        setVoiceMode(true);
-        setStatus("Voice mode starting...");
-
-        try {
-          recognitionRef.current?.stop();
-        } catch {}
-
-        return;
-      }
-
-      setInput(heard);
-      void sendMessage(heard);
-    };
-
-    recognition.onerror = (event: any) => {
-      if (!mountedRef.current) return;
-
-      setListening(false);
-
-      if (
-        event.error !== "no-speech" &&
-        event.error !== "aborted"
-      ) {
-        setStatus("Mic error: " + event.error);
-      }
-    };
-
-    recognition.onend = () => {
-      if (!mountedRef.current) return;
-
-      setListening(false);
-
-      if (voiceModeRef.current) {
-        window.setTimeout(() => {
-          if (
-            mountedRef.current &&
-            voiceModeRef.current
-          ) {
-            recognitionRef.current = null;
-            startListeningRef.current();
-          }
-        }, 700);
-      } else {
-        setStatus("ULTRON ready");
-      }
-    };
-
-    recognitionRef.current = recognition;
-
-    try {
-      recognition.start();
-    } catch {
-      setStatus("Tap Start Voice to resume");
-    }
+    window.speechSynthesis.speak(utterance);
   }, []);
 
-  useEffect(() => {
-    startListeningRef.current = startListening;
-  }, [startListening]);
+  async function openCommand(question: string): Promise<boolean> {
+    const text = question.trim();
+
+    const searchMatch = text.match(
+      /^(?:google(?:\s+la)?|search(?:\s+google)?|search\s+for)\s+(.+)$/i
+    );
+
+    if (searchMatch) {
+      const query = searchMatch[1].trim();
+
+      window.open(
+        "https://www.google.com/search?q=" + encodeURIComponent(query),
+        "_blank",
+        "noopener,noreferrer"
+      );
+
+      setMessages((old) => [
+        ...old,
+        {
+          role: "assistant",
+          text: `Google-la "${query}" search open panninen.`,
+        },
+      ]);
+
+      setStatus("Google search opened");
+      return true;
+    }
+
+    const websiteMatch = text.match(
+      /^(?:open|visit|go to)\s+(google|youtube|gmail|wikipedia|facebook|instagram|whatsapp web)$/i
+    );
+
+    if (websiteMatch) {
+      const sites: Record<string, string> = {
+        google: "https://www.google.com",
+        youtube: "https://www.youtube.com",
+        gmail: "https://mail.google.com",
+        wikipedia: "https://www.wikipedia.org",
+        facebook: "https://www.facebook.com",
+        instagram: "https://www.instagram.com",
+        "whatsapp web": "https://web.whatsapp.com",
+      };
+
+      const site = websiteMatch[1].toLowerCase();
+
+      window.open(sites[site], "_blank", "noopener,noreferrer");
+
+      setMessages((old) => [
+        ...old,
+        {
+          role: "assistant",
+          text: `${site} website open panna try panninen.`,
+        },
+      ]);
+
+      setStatus("Website command completed");
+      return true;
+    }
+
+    const appMatch = text.match(
+      /^(?:jarvis[, ]*)?(?:open|launch|start)\s+(calculator|notepad|paint|chrome|edge|explorer|file explorer|settings|whatsapp|youtube|instagram|telegram)$/i
+    );
+
+    if (appMatch) {
+      const app = appMatch[1].toLowerCase();
+
+      try {
+        const response = await fetch(
+          "http://127.0.0.1:3210/open-app",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ app }),
+          }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || "App open failed");
+        }
+
+        setMessages((old) => [
+          ...old,
+          {
+            role: "assistant",
+            text: data.message || `${app} open command sent.`,
+          },
+        ]);
+      } catch {
+        setMessages((old) => [
+          ...old,
+          {
+            role: "assistant",
+            text:
+              `${app} app-ai direct-ah open panna local agent setup thevai. ` +
+              "Browser mattum use pannina installed apps-ai launch panna mudiyadhu.",
+          },
+        ]);
+      }
+
+      setStatus("App command checked");
+      return true;
+    }
+
+    return false;
+  }
 
   async function sendMessage(text = input) {
     const question = text.trim();
@@ -271,30 +241,28 @@ export default function ChatPage() {
     setInput("");
     loadingRef.current = true;
     setLoading(true);
-    setStatus("ULTRON thinking...");
+    setStatus("JARVIS thinking...");
 
     try {
+      const handled = await openCommand(question);
+
+      if (handled) return;
+
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          message: question,
-        }),
+        body: JSON.stringify({ message: question }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(
-          data.error || "AI request failed"
-        );
+        throw new Error(data.error || "AI request failed");
       }
 
-      const reply = String(
-        data.reply || "Reply kidaikkala."
-      );
+      const reply = String(data.reply || "Reply kidaikkala.");
 
       setMessages((old) => [
         ...old,
@@ -302,7 +270,7 @@ export default function ChatPage() {
       ]);
 
       speak(reply);
-      setStatus("ULTRON ready");
+      setStatus("JARVIS ready");
     } catch (error) {
       const errorMessage =
         error instanceof Error
@@ -317,12 +285,123 @@ export default function ChatPage() {
         },
       ]);
 
-      setStatus("Check API key or server logs");
+      setStatus("Check API key or server");
     } finally {
       loadingRef.current = false;
       setLoading(false);
     }
   }
+
+  const startListening = useCallback(() => {
+    if (!mountedRef.current) return;
+
+    const browser = window as Window & {
+      SpeechRecognition?: new () => VoiceRecognition;
+      webkitSpeechRecognition?: new () => VoiceRecognition;
+    };
+
+    const SpeechAPI =
+      browser.SpeechRecognition || browser.webkitSpeechRecognition;
+
+    if (!SpeechAPI) {
+      setStatus("Voice unsupported. Try Chrome.");
+      voiceModeRef.current = false;
+      setVoiceMode(false);
+      return;
+    }
+
+    try {
+      recognitionRef.current?.stop();
+    } catch {}
+
+    const recognition = new SpeechAPI();
+
+    recognition.lang = "ta-IN";
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    recognition.onstart = () => {
+      if (!mountedRef.current) return;
+
+      setListening(true);
+      setStatus("Listening...");
+    };
+
+    recognition.onresult = (event: any) => {
+      const heard = String(
+        event.results?.[0]?.[0]?.transcript || ""
+      ).trim();
+
+      if (!heard) return;
+
+      const command = heard.toLowerCase().replace(/[.!?,]/g, "").trim();
+
+      if (
+        /^(stop listening|stop voice mode|exit voice mode)$/.test(command)
+      ) {
+        voiceModeRef.current = false;
+        setVoiceMode(false);
+        setStatus("Voice mode stopped");
+        return;
+      }
+
+      if (/^(voice off|mute voice)$/.test(command)) {
+        voiceOnRef.current = false;
+        setVoiceOn(false);
+        window.speechSynthesis?.cancel();
+        setStatus("Voice output OFF");
+        return;
+      }
+
+      if (/^(voice on|unmute voice)$/.test(command)) {
+        voiceOnRef.current = true;
+        setVoiceOn(true);
+        setStatus("Voice output ON");
+        return;
+      }
+
+      void sendMessage(heard);
+    };
+
+    recognition.onerror = (event: any) => {
+      if (!mountedRef.current) return;
+
+      setListening(false);
+
+      if (event.error !== "no-speech" && event.error !== "aborted") {
+        setStatus("Mic error: " + event.error);
+      }
+    };
+
+    recognition.onend = () => {
+      if (!mountedRef.current) return;
+
+      setListening(false);
+
+      if (voiceModeRef.current) {
+        window.setTimeout(() => {
+          if (mountedRef.current && voiceModeRef.current) {
+            recognitionRef.current = null;
+            startListeningRef.current();
+          }
+        }, 900);
+      } else {
+        setStatus("JARVIS ready");
+      }
+    };
+
+    recognitionRef.current = recognition;
+
+    try {
+      recognition.start();
+    } catch {
+      setStatus("Tap Start Voice again");
+    }
+  }, [speak]);
+
+  useEffect(() => {
+    startListeningRef.current = startListening;
+  }, [startListening]);
 
   function toggleVoiceMode() {
     if (voiceModeRef.current) {
@@ -338,7 +417,7 @@ export default function ChatPage() {
     } else {
       voiceModeRef.current = true;
       setVoiceMode(true);
-      setStatus("Voice mode starting...");
+      setStatus("Starting voice...");
       startListeningRef.current();
     }
   }
@@ -353,25 +432,30 @@ export default function ChatPage() {
       window.speechSynthesis.cancel();
     }
 
-    setStatus(
-      next ? "Voice output ON" : "Voice output OFF"
-    );
+    setStatus(next ? "Voice output ON" : "Voice output OFF");
+  }
+
+  function newChat() {
+    if (loadingRef.current) return;
+
+    setMessages([WELCOME]);
+    setInput("");
+    setStatus("New chat started");
   }
 
   return (
     <main style={s.page}>
       <div style={s.orbSection}>
-  <JarvisOrb compact />
-</div>
+        <JarvisOrb compact />
+      </div>
+
       <header style={s.header}>
-        <a href="/" style={s.home}>
-          ← Home
-        </a>
+        <a href="/" style={s.home}>← Home</a>
 
         <div style={s.brand}>
-          <div style={s.orb}>U</div>
+          <div style={s.orb}>J</div>
           <div>
-            <h1 style={s.title}>ULTRON</h1>
+            <h1 style={s.title}>JARVIS</h1>
             <div style={s.subtitle}>AI CHAT + VOICE</div>
           </div>
         </div>
@@ -385,14 +469,24 @@ export default function ChatPage() {
         </button>
       </header>
 
-      <div style={s.status}>
-        <span
-          style={{
-            ...s.dot,
-            background: listening ? "#34d399" : "#22d3ee",
-          }}
-        />
-        {status}
+      <div style={s.toolbar}>
+        <div style={s.status}>
+          <span
+            style={{
+              ...s.dot,
+              background: listening ? "#34d399" : "#22d3ee",
+            }}
+          />
+          {status}
+        </div>
+
+        <button
+          type="button"
+          style={s.newChat}
+          onClick={newChat}
+        >
+          + New Chat
+        </button>
       </div>
 
       <section
@@ -406,28 +500,18 @@ export default function ChatPage() {
             style={{
               ...s.message,
               alignSelf:
-                message.role === "user"
-                  ? "flex-end"
-                  : "flex-start",
+                message.role === "user" ? "flex-end" : "flex-start",
               borderColor:
-                message.role === "user"
-                  ? "#0e7490"
-                  : "#334155",
+                message.role === "user" ? "#0e7490" : "#334155",
               background:
-                message.role === "user"
-                  ? "#123747"
-                  : "#151f30",
+                message.role === "user" ? "#123747" : "#151f30",
             }}
           >
             <div style={s.sender}>
-              {message.role === "user"
-                ? "YOU"
-                : "ULTRON"}
+              {message.role === "user" ? "YOU" : "JARVIS"}
             </div>
 
-            <div style={s.messageText}>
-              {message.text}
-            </div>
+            <div style={s.messageText}>{message.text}</div>
 
             {message.role === "assistant" && (
               <button
@@ -442,9 +526,7 @@ export default function ChatPage() {
         ))}
 
         {loading && (
-          <div style={s.thinking}>
-            ULTRON is thinking...
-          </div>
+          <div style={s.thinking}>JARVIS is thinking...</div>
         )}
 
         <div ref={bottomRef} />
@@ -456,9 +538,7 @@ export default function ChatPage() {
           style={s.voiceButton}
           onClick={toggleVoiceMode}
         >
-          {voiceMode
-            ? "⏹ Stop Voice"
-            : "🎙 Start Voice"}
+          {voiceMode ? "⏹ Stop Voice" : "🎙 Start Voice"}
         </button>
 
         <form
@@ -471,19 +551,16 @@ export default function ChatPage() {
           <input
             style={s.input}
             value={input}
-            onChange={(event) =>
-              setInput(event.target.value)
-            }
-            placeholder="Message ULTRON..."
-            aria-label="Message ULTRON"
+            onChange={(event) => setInput(event.target.value)}
+            placeholder="Message JARVIS..."
+            aria-label="Message JARVIS"
           />
 
           <button
             type="submit"
             style={{
               ...s.send,
-              opacity:
-                loading || !input.trim() ? 0.5 : 1,
+              opacity: loading || !input.trim() ? 0.5 : 1,
             }}
             disabled={loading || !input.trim()}
           >
@@ -492,8 +569,7 @@ export default function ChatPage() {
         </form>
 
         <div style={s.note}>
-          Voice mode listening restart aagum. Page open-ah
-          vechiru; microphone permission allow pannu.
+          Mic permission allow pannu. Voice support browser-ai depend pannum.
         </div>
       </div>
     </main>
@@ -516,7 +592,13 @@ const s: Record<string, React.CSSProperties> = {
     padding: "12px",
     gap: "10px",
   },
-
+  orbSection: {
+    position: "relative",
+    width: "100%",
+    height: "150px",
+    flexShrink: 0,
+    overflow: "hidden",
+  },
   header: {
     display: "flex",
     alignItems: "center",
@@ -526,21 +608,18 @@ const s: Record<string, React.CSSProperties> = {
     borderBottom: "1px solid #26394d",
     flexShrink: 0,
   },
-
   home: {
     color: "#67e8f9",
     textDecoration: "none",
     fontSize: "13px",
     flexShrink: 0,
   },
-
   brand: {
     display: "flex",
     alignItems: "center",
     gap: "8px",
     minWidth: 0,
   },
-
   orb: {
     width: "38px",
     height: "38px",
@@ -553,20 +632,13 @@ const s: Record<string, React.CSSProperties> = {
     border: "2px solid #22d3ee",
     boxShadow: "0 0 18px #0891b2",
   },
-
-  title: {
-    margin: 0,
-    fontSize: "16px",
-    letterSpacing: "2px",
-  },
-
+  title: { margin: 0, fontSize: "16px", letterSpacing: "2px" },
   subtitle: {
     marginTop: "4px",
     fontSize: "10px",
     color: "#67e8f9",
     letterSpacing: "1px",
   },
-
   smallButton: {
     background: "#102b3a",
     color: "#67e8f9",
@@ -576,7 +648,12 @@ const s: Record<string, React.CSSProperties> = {
     fontSize: "12px",
     flexShrink: 0,
   },
-
+  toolbar: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "8px",
+  },
   status: {
     display: "flex",
     alignItems: "center",
@@ -584,16 +661,22 @@ const s: Record<string, React.CSSProperties> = {
     color: "#a5c4d7",
     fontSize: "12px",
     padding: "2px 4px",
-    flexShrink: 0,
+    minWidth: 0,
   },
-
   dot: {
     width: "8px",
     height: "8px",
     borderRadius: "50%",
     flexShrink: 0,
   },
-
+  newChat: {
+    background: "#102b3a",
+    color: "#67e8f9",
+    border: "1px solid #256579",
+    borderRadius: "8px",
+    padding: "8px 10px",
+    flexShrink: 0,
+  },
   messages: {
     flex: 1,
     minHeight: 0,
@@ -603,7 +686,6 @@ const s: Record<string, React.CSSProperties> = {
     gap: "12px",
     padding: "8px 2px 16px",
   },
-
   message: {
     maxWidth: "88%",
     padding: "12px",
@@ -612,7 +694,6 @@ const s: Record<string, React.CSSProperties> = {
     overflowWrap: "anywhere",
     lineHeight: 1.5,
   },
-
   sender: {
     color: "#67e8f9",
     fontSize: "10px",
@@ -620,12 +701,7 @@ const s: Record<string, React.CSSProperties> = {
     fontWeight: 700,
     marginBottom: "6px",
   },
-
-  messageText: {
-    whiteSpace: "pre-wrap",
-    fontSize: "15px",
-  },
-
+  messageText: { whiteSpace: "pre-wrap", fontSize: "15px" },
   speakButton: {
     marginTop: "8px",
     background: "transparent",
@@ -634,20 +710,13 @@ const s: Record<string, React.CSSProperties> = {
     borderRadius: "7px",
     padding: "5px 9px",
   },
-
-  thinking: {
-    color: "#67e8f9",
-    fontSize: "13px",
-    padding: "8px",
-  },
-
+  thinking: { color: "#67e8f9", fontSize: "13px", padding: "8px" },
   controls: {
     flexShrink: 0,
     borderTop: "1px solid #26394d",
     paddingTop: "10px",
     background: "#080d18",
   },
-
   voiceButton: {
     width: "100%",
     background: "#123344",
@@ -658,13 +727,7 @@ const s: Record<string, React.CSSProperties> = {
     fontSize: "14px",
     fontWeight: 700,
   },
-
-  form: {
-    display: "flex",
-    gap: "8px",
-    marginTop: "8px",
-  },
-
+  form: { display: "flex", gap: "8px", marginTop: "8px" },
   input: {
     flex: 1,
     minWidth: 0,
@@ -676,7 +739,6 @@ const s: Record<string, React.CSSProperties> = {
     fontSize: "15px",
     outline: "none",
   },
-
   send: {
     width: "48px",
     background: "#0891b2",
@@ -685,20 +747,10 @@ const s: Record<string, React.CSSProperties> = {
     borderRadius: "10px",
     fontSize: "20px",
   },
-
   note: {
     color: "#71869b",
     fontSize: "10px",
     textAlign: "center",
     padding: "8px 0 2px",
   },
-
-  orbSection: {
-  position: "relative",
-  width: "100%",
-  height: "220px",
-  flexShrink: 0,
-  overflow: "hidden",
-  },
 };
-          
