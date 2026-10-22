@@ -538,7 +538,7 @@ const deleteChat = (id: string) => {
               style={s.outputButton}
               onClick={toggleVoiceOutput}
             >
-              Voice reply: {voiceOutput ? "ON" : "OFF"}
+              Voice reply: {voiceOn ? "ON" : "OFF"}
             </button>
           </div>
         )}
