@@ -1,11 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import JarvisOrb from "@/components/JarvisOrb";
 
 type Message = {
   role: "user" | "assistant";
   text: string;
+};
+
+type ChatSession = {
+  id: string;
+  title: string;
+  messages: Message[];
 };
 
 type VoiceRecognition = {
@@ -25,15 +32,28 @@ const WELCOME: Message = {
   text: "Vanakkam! Naan JARVIS. Enna help venum?",
 };
 
+const STORAGE_KEY = "jarvis-chat-sessions";
+const ACTIVE_KEY = "jarvis-active-chat";
+
+function makeChat(): ChatSession {
+  return {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    title: "New chat",
+    messages: [WELCOME],
+  };
+}
+
 export default function ChatPage() {
-  const [messages, setMessages] = useState<Message[]>([WELCOME]);
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [activeId, setActiveId] = useState("");
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [voiceOn, setVoiceOn] = useState(true);
   const [voiceMode, setVoiceMode] = useState(false);
   const [listening, setListening] = useState(false);
   const [status, setStatus] = useState("JARVIS ready");
-  const [historyReady, setHistoryReady] = useState(false);
+  const [ready, setReady] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const recognitionRef = useRef<VoiceRecognition | null>(null);
@@ -43,11 +63,17 @@ export default function ChatPage() {
   const mountedRef = useRef(false);
   const startListeningRef = useRef<() => void>(() => {});
 
+  const activeChat = sessions.find((chat) => chat.id === activeId);
+  const messages = activeChat?.messages ?? [WELCOME];
+
   useEffect(() => {
     mountedRef.current = true;
 
+    let initialSessions: ChatSession[] = [];
+    let initialActiveId = "";
+
     try {
-      const saved = localStorage.getItem("jarvis-chat-history");
+      const saved = localStorage.getItem(STORAGE_KEY);
 
       if (saved) {
         const parsed: unknown = JSON.parse(saved);
@@ -55,18 +81,40 @@ export default function ChatPage() {
         if (
           Array.isArray(parsed) &&
           parsed.every(
-            (item) =>
-              item &&
-              (item.role === "user" || item.role === "assistant") &&
-              typeof item.text === "string"
+            (chat) =>
+              chat &&
+              typeof chat.id === "string" &&
+              typeof chat.title === "string" &&
+              Array.isArray(chat.messages) &&
+              chat.messages.every(
+                (message: Message) =>
+                  message &&
+                  (message.role === "user" ||
+                    message.role === "assistant") &&
+                  typeof message.text === "string"
+              )
           )
         ) {
-          setMessages(parsed as Message[]);
+          initialSessions = parsed as ChatSession[];
         }
       }
+
+      initialActiveId = localStorage.getItem(ACTIVE_KEY) || "";
     } catch {}
 
-    setHistoryReady(true);
+    if (!initialSessions.length) {
+      const first = makeChat();
+      initialSessions = [first];
+      initialActiveId = first.id;
+    }
+
+    if (!initialSessions.some((chat) => chat.id === initialActiveId)) {
+      initialActiveId = initialSessions[0].id;
+    }
+
+    setSessions(initialSessions);
+    setActiveId(initialActiveId);
+    setReady(true);
 
     return () => {
       mountedRef.current = false;
@@ -83,15 +131,13 @@ export default function ChatPage() {
   }, []);
 
   useEffect(() => {
-    if (!historyReady) return;
+    if (!ready) return;
 
     try {
-      localStorage.setItem(
-        "jarvis-chat-history",
-        JSON.stringify(messages)
-      );
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+      localStorage.setItem(ACTIVE_KEY, activeId);
     } catch {}
-  }, [messages, historyReady]);
+  }, [sessions, activeId, ready]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({
@@ -100,22 +146,77 @@ export default function ChatPage() {
     });
   }, [messages, loading]);
 
+  const updateMessages = useCallback(
+    (updater: (old: Message[]) => Message[]) => {
+      setSessions((oldSessions) =>
+        oldSessions.map((chat) =>
+          chat.id === activeId
+            ? (() => {
+                const nextMessages = updater(chat.messages);
+                const firstUser = nextMessages.find(
+                  (message) => message.role === "user"
+                );
+
+                return {
+                  ...chat,
+                  messages: nextMessages,
+                  title:
+                    chat.title === "New chat" && firstUser
+                      ? firstUser.text.slice(0, 36) +
+                        (firstUser.text.length > 36 ? "…" : "")
+                      : chat.title,
+                };
+              })()
+            : chat
+        )
+      );
+    },
+    [activeId]
+  );
+
   const speak = useCallback((text: string) => {
     if (!voiceOnRef.current || !("speechSynthesis" in window)) return;
 
     window.speechSynthesis.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = "ta-IN";
-    utterance.rate = 0.95;
-    utterance.pitch = 0.9;
-
     const voices = window.speechSynthesis.getVoices();
 
-    utterance.voice =
-      voices.find((v) => v.lang.toLowerCase().startsWith("ta")) ||
-      voices.find((v) => v.lang.toLowerCase().startsWith("en-in")) ||
-      null;
+    // Prefer voices commonly labelled as male.
+    // Voice names and availability depend on the device/browser.
+    const maleVoicePatterns =
+      /male|david|mark|guy|daniel|james|aaron|george|rishi|fred|alex/i;
+
+    const preferredVoice =
+      voices.find(
+        (voice) =>
+          maleVoicePatterns.test(voice.name) &&
+          /en-IN|en-GB|en-US/i.test(voice.lang)
+      ) ||
+      voices.find(
+        (voice) =>
+          maleVoicePatterns.test(voice.name) &&
+          voice.lang.toLowerCase().startsWith("ta")
+      ) ||
+      voices.find(
+        (voice) =>
+          voice.lang.toLowerCase() === "en-in" ||
+          voice.lang.toLowerCase() === "en-gb" ||
+          voice.lang.toLowerCase() === "en-us"
+      ) ||
+      voices.find((voice) =>
+        voice.lang.toLowerCase().startsWith("ta")
+      );
+
+    if (preferredVoice) {
+      utterance.voice = preferredVoice;
+      utterance.lang = preferredVoice.lang;
+    } else {
+      utterance.lang = "en-IN";
+    }
+
+    utterance.rate = 0.92;
+    utterance.pitch = 0.82;
 
     window.speechSynthesis.speak(utterance);
   }, []);
@@ -136,11 +237,11 @@ export default function ChatPage() {
         "noopener,noreferrer"
       );
 
-      setMessages((old) => [
+      updateMessages((old) => [
         ...old,
         {
           role: "assistant",
-          text: `Google-la "${query}" search open panninen.`,
+          text: `Google-la "${query}" search open panna try panninen.`,
         },
       ]);
 
@@ -167,7 +268,7 @@ export default function ChatPage() {
 
       window.open(sites[site], "_blank", "noopener,noreferrer");
 
-      setMessages((old) => [
+      updateMessages((old) => [
         ...old,
         {
           role: "assistant",
@@ -187,14 +288,11 @@ export default function ChatPage() {
       const app = appMatch[1].toLowerCase();
 
       try {
-        const response = await fetch(
-          "http://127.0.0.1:3210/open-app",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ app }),
-          }
-        );
+        const response = await fetch("http://127.0.0.1:3210/open-app", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ app }),
+        });
 
         const data = await response.json();
 
@@ -202,7 +300,7 @@ export default function ChatPage() {
           throw new Error(data.error || "App open failed");
         }
 
-        setMessages((old) => [
+        updateMessages((old) => [
           ...old,
           {
             role: "assistant",
@@ -210,7 +308,7 @@ export default function ChatPage() {
           },
         ]);
       } catch {
-        setMessages((old) => [
+        updateMessages((old) => [
           ...old,
           {
             role: "assistant",
@@ -231,9 +329,9 @@ export default function ChatPage() {
   async function sendMessage(text = input) {
     const question = text.trim();
 
-    if (!question || loadingRef.current) return;
+    if (!question || loadingRef.current || !activeId) return;
 
-    setMessages((old) => [
+    updateMessages((old) => [
       ...old,
       { role: "user", text: question },
     ]);
@@ -250,9 +348,7 @@ export default function ChatPage() {
 
       const response = await fetch("/api/chat", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: question }),
       });
 
@@ -264,7 +360,7 @@ export default function ChatPage() {
 
       const reply = String(data.reply || "Reply kidaikkala.");
 
-      setMessages((old) => [
+      updateMessages((old) => [
         ...old,
         { role: "assistant", text: reply },
       ]);
@@ -273,16 +369,11 @@ export default function ChatPage() {
       setStatus("JARVIS ready");
     } catch (error) {
       const errorMessage =
-        error instanceof Error
-          ? error.message
-          : "Something went wrong.";
+        error instanceof Error ? error.message : "Something went wrong.";
 
-      setMessages((old) => [
+      updateMessages((old) => [
         ...old,
-        {
-          role: "assistant",
-          text: "Error: " + errorMessage,
-        },
+        { role: "assistant", text: "Error: " + errorMessage },
       ]);
 
       setStatus("Check API key or server");
@@ -322,7 +413,6 @@ export default function ChatPage() {
 
     recognition.onstart = () => {
       if (!mountedRef.current) return;
-
       setListening(true);
       setStatus("Listening...");
     };
@@ -438,319 +528,227 @@ export default function ChatPage() {
   function newChat() {
     if (loadingRef.current) return;
 
-    setMessages([WELCOME]);
+    const chat = makeChat();
+
+    setSessions((old) => [chat, ...old]);
+    setActiveId(chat.id);
     setInput("");
+    setSidebarOpen(false);
     setStatus("New chat started");
+  }
+
+  function selectChat(id: string) {
+    if (loadingRef.current) return;
+
+    setActiveId(id);
+    setSidebarOpen(false);
+    setStatus("Chat opened");
+  }
+
+  function deleteChat(id: string) {
+    if (loadingRef.current) return;
+
+    const remaining = sessions.filter((chat) => chat.id !== id);
+
+    if (!remaining.length) {
+      const chat = makeChat();
+      setSessions([chat]);
+      setActiveId(chat.id);
+    } else {
+      setSessions(remaining);
+
+      if (activeId === id) {
+        setActiveId(remaining[0].id);
+      }
+    }
+
+    setStatus("Chat deleted");
   }
 
   return (
     <main style={s.page}>
-      <div style={s.orbSection}>
-        <JarvisOrb compact />
-      </div>
-
-      <header style={s.header}>
-        <a href="/" style={s.home}>← Home</a>
-
-        <div style={s.brand}>
-          <div style={s.orb}>J</div>
-          <div>
-            <h1 style={s.title}>JARVIS</h1>
-            <div style={s.subtitle}>AI CHAT + VOICE</div>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          style={s.smallButton}
-          onClick={toggleVoiceOutput}
-        >
-          {voiceOn ? "🔊 ON" : "🔇 OFF"}
-        </button>
-      </header>
-
-      <div style={s.toolbar}>
-        <div style={s.status}>
-          <span
-            style={{
-              ...s.dot,
-              background: listening ? "#34d399" : "#22d3ee",
-            }}
-          />
-          {status}
-        </div>
-
-        <button
-          type="button"
-          style={s.newChat}
-          onClick={newChat}
-        >
-          + New Chat
-        </button>
-      </div>
-
-      <section
-        style={s.messages}
-        aria-live="polite"
-        aria-label="Chat messages"
+      <aside
+        style={{
+          ...s.sidebar,
+          ...(sidebarOpen ? s.sidebarMobileOpen : {}),
+        }}
       >
-        {messages.map((message, index) => (
-          <div
-            key={index}
-            style={{
-              ...s.message,
-              alignSelf:
-                message.role === "user" ? "flex-end" : "flex-start",
-              borderColor:
-                message.role === "user" ? "#0e7490" : "#334155",
-              background:
-                message.role === "user" ? "#123747" : "#151f30",
-            }}
-          >
-            <div style={s.sender}>
-              {message.role === "user" ? "YOU" : "JARVIS"}
-            </div>
-
-            <div style={s.messageText}>{message.text}</div>
-
-            {message.role === "assistant" && (
-              <button
-                type="button"
-                style={s.speakButton}
-                onClick={() => speak(message.text)}
-              >
-                🔊 Speak
-              </button>
-            )}
+        <div style={s.sidebarTop}>
+          <div style={s.sidebarBrand}>
+            <span style={s.brandMark}>J</span>
+            <span>JARVIS</span>
           </div>
-        ))}
-
-        {loading && (
-          <div style={s.thinking}>JARVIS is thinking...</div>
-        )}
-
-        <div ref={bottomRef} />
-      </section>
-
-      <div style={s.controls}>
-        <button
-          type="button"
-          style={s.voiceButton}
-          onClick={toggleVoiceMode}
-        >
-          {voiceMode ? "⏹ Stop Voice" : "🎙 Start Voice"}
-        </button>
-
-        <form
-          style={s.form}
-          onSubmit={(event) => {
-            event.preventDefault();
-            void sendMessage();
-          }}
-        >
-          <input
-            style={s.input}
-            value={input}
-            onChange={(event) => setInput(event.target.value)}
-            placeholder="Message JARVIS..."
-            aria-label="Message JARVIS"
-          />
 
           <button
-            type="submit"
-            style={{
-              ...s.send,
-              opacity: loading || !input.trim() ? 0.5 : 1,
-            }}
-            disabled={loading || !input.trim()}
+            type="button"
+            style={s.iconButton}
+            aria-label="Close sidebar"
+            onClick={() => setSidebarOpen(false)}
           >
-            ➤
+            ✕
           </button>
-        </form>
-
-        <div style={s.note}>
-          Mic permission allow pannu. Voice support browser-ai depend pannum.
         </div>
-      </div>
-    </main>
-  );
-}
 
-const s: Record<string, React.CSSProperties> = {
-  page: {
-    height: "100dvh",
-    minHeight: "480px",
-    width: "100%",
-    overflow: "hidden",
-    background:
-      "radial-gradient(ellipse at top, #10283b 0%, #070c15 55%, #03060b 100%)",
-    color: "#e5f4ff",
-    display: "flex",
-    flexDirection: "column",
-    fontFamily: "Arial, sans-serif",
-    boxSizing: "border-box",
-    padding: "12px",
-    gap: "10px",
-  },
-  orbSection: {
-    position: "relative",
-    width: "100%",
-    height: "150px",
-    flexShrink: 0,
-    overflow: "hidden",
-  },
-  header: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: "8px",
-    paddingBottom: "12px",
-    borderBottom: "1px solid #26394d",
-    flexShrink: 0,
-  },
-  home: {
-    color: "#67e8f9",
-    textDecoration: "none",
-    fontSize: "13px",
-    flexShrink: 0,
-  },
-  brand: {
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-    minWidth: 0,
-  },
-  orb: {
-    width: "38px",
-    height: "38px",
-    flexShrink: 0,
-    borderRadius: "50%",
-    display: "grid",
-    placeItems: "center",
-    fontWeight: 800,
-    color: "#a5f3fc",
-    border: "2px solid #22d3ee",
-    boxShadow: "0 0 18px #0891b2",
-  },
-  title: { margin: 0, fontSize: "16px", letterSpacing: "2px" },
-  subtitle: {
-    marginTop: "4px",
-    fontSize: "10px",
-    color: "#67e8f9",
-    letterSpacing: "1px",
-  },
-  smallButton: {
-    background: "#102b3a",
-    color: "#67e8f9",
-    border: "1px solid #256579",
-    borderRadius: "8px",
-    padding: "9px 8px",
-    fontSize: "12px",
-    flexShrink: 0,
-  },
-  toolbar: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: "8px",
-  },
-  status: {
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-    color: "#a5c4d7",
-    fontSize: "12px",
-    padding: "2px 4px",
-    minWidth: 0,
-  },
-  dot: {
-    width: "8px",
-    height: "8px",
-    borderRadius: "50%",
-    flexShrink: 0,
-  },
-  newChat: {
-    background: "#102b3a",
-    color: "#67e8f9",
-    border: "1px solid #256579",
-    borderRadius: "8px",
-    padding: "8px 10px",
-    flexShrink: 0,
-  },
-  messages: {
-    flex: 1,
-    minHeight: 0,
-    overflowY: "auto",
-    display: "flex",
-    flexDirection: "column",
-    gap: "12px",
-    padding: "8px 2px 16px",
-  },
-  message: {
-    maxWidth: "88%",
-    padding: "12px",
-    border: "1px solid",
-    borderRadius: "14px",
-    overflowWrap: "anywhere",
-    lineHeight: 1.5,
-  },
-  sender: {
-    color: "#67e8f9",
-    fontSize: "10px",
-    letterSpacing: "1.5px",
-    fontWeight: 700,
-    marginBottom: "6px",
-  },
-  messageText: { whiteSpace: "pre-wrap", fontSize: "15px" },
-  speakButton: {
-    marginTop: "8px",
-    background: "transparent",
-    color: "#67e8f9",
-    border: "1px solid #34566a",
-    borderRadius: "7px",
-    padding: "5px 9px",
-  },
-  thinking: { color: "#67e8f9", fontSize: "13px", padding: "8px" },
-  controls: {
-    flexShrink: 0,
-    borderTop: "1px solid #26394d",
-    paddingTop: "10px",
-    background: "#080d18",
-  },
-  voiceButton: {
-    width: "100%",
-    background: "#123344",
-    color: "#a5f3fc",
-    border: "1px solid #256579",
-    borderRadius: "10px",
-    padding: "12px",
-    fontSize: "14px",
-    fontWeight: 700,
-  },
-  form: { display: "flex", gap: "8px", marginTop: "8px" },
-  input: {
-    flex: 1,
-    minWidth: 0,
-    background: "#111c2b",
-    color: "#ffffff",
-    border: "1px solid #334b61",
-    borderRadius: "10px",
-    padding: "13px",
-    fontSize: "15px",
-    outline: "none",
-  },
-  send: {
-    width: "48px",
-    background: "#0891b2",
-    color: "white",
-    border: 0,
-    borderRadius: "10px",
-    fontSize: "20px",
-  },
-  note: {
-    color: "#71869b",
-    fontSize: "10px",
-    textAlign: "center",
-    padding: "8px 0 2px",
-  },
-};
+        <button type="button" style={s.newChatSide} onClick={newChat}>
+          <span>＋</span> New chat
+        </button>
+
+        <div style={s.historyHeading}>RECENT CHATS</div>
+
+        <div style={s.historyList}>
+          {sessions.map((chat) => (
+            <div
+              key={chat.id}
+              style={{
+                ...s.historyItem,
+                ...(chat.id === activeId ? s.historyActive : {}),
+              }}
+            >
+              <button
+                type="button"
+                style={s.historySelect}
+                onClick={() => selectChat(chat.id)}
+                title={chat.title}
+              >
+                <span style={s.historyIcon}>◷</span>
+                <span style={s.historyTitle}>{chat.title}</span>
+              </button>
+
+              <button
+                type="button"
+                style={s.deleteButton}
+                onClick={() => deleteChat(chat.id)}
+                aria-label={`Delete ${chat.title}`}
+                title="Delete chat"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+
+        <div style={s.sidebarBottom}>
+          <div style={s.profileCircle}>J</div>
+          <div>
+            <div style={s.profileName}>JARVIS Assistant</div>
+            <div style={s.profileStatus}>AI chat enabled</div>
+          </div>
+        </div>
+      </aside>
+
+      {sidebarOpen && (
+        <button
+          type="button"
+          style={s.backdrop}
+          aria-label="Close sidebar overlay"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      <section style={s.mainPanel}>
+        <header style={s.header}>
+          <div style={s.headerLeft}>
+            <button
+              type="button"
+              style={s.menuButton}
+              onClick={() => setSidebarOpen(true)}
+              aria-label="Open sidebar"
+            >
+              ☰
+            </button>
+
+            <div>
+              <div style={s.headerTitle}>JARVIS <span>AI</span></div>
+              <div style={s.headerSubtitle}>
+                {listening ? "Listening to you..." : status}
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            style={{
+              ...s.voiceToggle,
+              ...(voiceOn ? s.voiceToggleOn : {}),
+            }}
+            onClick={toggleVoiceOutput}
+          >
+            {voiceOn ? "🔊 Voice ON" : "🔇 Voice OFF"}
+          </button>
+        </header>
+
+        <div style={s.orbSection}>
+          <JarvisOrb compact />
+        </div>
+
+        <section style={s.messages} aria-live="polite" aria-label="Chat messages">
+          {messages.length <= 1 && (
+            <div style={s.welcome}>
+              <div style={s.welcomeBadge}>✦</div>
+              <h1 style={s.welcomeTitle}>How can I help you?</h1>
+              <p style={s.welcomeText}>
+                Ask anything, search the web, or talk to JARVIS.
+              </p>
+
+              <div style={s.suggestions}>
+                {[
+                  "Explain artificial intelligence",
+                  "Python na enna?",
+                  "Open YouTube",
+                ].map((suggestion) => (
+                  <button
+                    key={suggestion}
+                    type="button"
+                    style={s.suggestion}
+                    onClick={() => void sendMessage(suggestion)}
+                    disabled={loading}
+                  >
+                    <span>✧</span> {suggestion}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {messages.map((message, index) => {
+            if (index === 0 && message.role === "assistant") return null;
+
+            const isUser = message.role === "user";
+
+            return (
+              <div
+                key={`${activeId}-${index}`}
+                style={{
+                  ...s.messageRow,
+                  justifyContent: isUser ? "flex-end" : "flex-start",
+                }}
+              >
+                {!isUser && <div style={s.assistantAvatar}>J</div>}
+
+                <div
+                  style={{
+                    ...s.message,
+                    ...(isUser ? s.userMessage : s.assistantMessage),
+                  }}
+                >
+                  <div style={s.messageText}>{message.text}</div>
+
+                  {!isUser && (
+                    <button
+                      type="button"
+                      style={s.speakButton}
+                      onClick={() => speak(message.text)}
+                      title="Read response aloud"
+                    >
+                      🔊 Listen
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+
+          {loading && (
+            <div style={s.messageRow}>
+              <div style={s.assistantAvatar}>J</div>
+              <div style={s.
