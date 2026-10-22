@@ -604,7 +604,7 @@ const deleteChat = (id: string) => {
             <div style={s.loadingText}>JARVIS is thinking...</div>
           )}
 
-          <div ref={messagesEndRef} />
+          <div ref={bottomRef} />
         </div>
 
         <footer style={s.composerArea}>
