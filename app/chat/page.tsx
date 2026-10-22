@@ -393,34 +393,37 @@ export default function ChatPage() {
   };
 
   const newChat = () => {
-    const id = Date.now().toString();
+  const chat = makeChat();
 
-    setActiveId(id);
-    setMessages([]);
-    setInput("");
-    setChatHistory((previous) => [
-      { id, title: "New chat" },
-      ...previous,
-    ]);
-    setSidebarOpen(false);
-  };
+  setSessions((previous) => [chat, ...previous]);
+  setActiveId(chat.id);
+  setInput("");
+  setSidebarOpen(false);
+};
 
-  const selectChat = (chat: { id: string; title: string }) => {
-    setActiveId(chat.id);
-    setMessages([]);
-    setSidebarOpen(false);
-  };
+const selectChat = (chat: { id: string; title: string }) => {
+  setActiveId(chat.id);
+  setInput("");
+  setSidebarOpen(false);
+};
 
-  const deleteChat = (id: string) => {
-    setChatHistory((previous) =>
-      previous.filter((chat) => chat.id !== id)
-    );
+const deleteChat = (id: string) => {
+  setSessions((previous) => {
+    const remaining = previous.filter((chat) => chat.id !== id);
 
     if (activeId === id) {
-      setActiveId("");
-      setMessages([]);
+      if (remaining.length > 0) {
+        setActiveId(remaining[0].id);
+      } else {
+        const chat = makeChat();
+        setActiveId(chat.id);
+        return [chat];
+      }
     }
-  };
+
+    return remaining;
+  });
+};
 
   return (
     <main style={s.app}>
