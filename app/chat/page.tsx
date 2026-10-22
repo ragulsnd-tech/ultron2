@@ -457,7 +457,7 @@ const deleteChat = (id: string) => {
         <div style={s.historyTitle}>RECENT CHATS</div>
 
         <div style={s.historyList}>
-          sessions.map((chat) => (
+          {sessions.map((chat) => (
             <div key={chat.id} style={s.historyRow}>
               <button
                 style={{
