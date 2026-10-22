@@ -595,7 +595,7 @@ const deleteChat = (id: string) => {
                 <div style={s.messageRole}>
                   {message.role === "user" ? "You" : "JARVIS"}
                 </div>
-                <div style={s.messageContent}>{message.content}</div>
+                <div style={s.messagecontent}>{message.text}</div>
               </div>
             </div>
           ))}
