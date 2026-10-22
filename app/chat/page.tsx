@@ -389,7 +389,7 @@ export default function ChatPage() {
   };
 
   const toggleVoiceOutput = () => {
-    setVoiceOutput((previous) => !previous);
+    setVoiceOn((previous) => !previous);
   };
 
   const newChat = () => {
