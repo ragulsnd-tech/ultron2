@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
-import JarvisOrb from "@/components/JarvisOrb";
 
 type Message = {
   role: "user" | "assistant";
@@ -569,10 +568,22 @@ export default function ChatPage() {
     <main style={s.page}>
       <aside
         style={{
-          ...s.sidebar,
-          ...(sidebarOpen ? s.sidebarMobileOpen : {}),
-        }}
-      >
+           ...s.sidebar,
+           ...(sidebarOpen ? s.sidebarMobileOpen : {}),
+           ...(typeof window !== "undefined" && window.innerWidth <= 700
+           ? {
+              position: "fixed",
+              left: sidebarOpen ? 0 : "-300px",
+              top: 0,
+              bottom: 0,
+              width: "280px",
+              minWidth: "280px",
+              zIndex: 100,
+              transition: "left 0.2s ease",
+             }
+        : {}),
+       }}
+     >
         <div style={s.sidebarTop}>
           <div style={s.sidebarBrand}>
             <span style={s.brandMark}>J</span>
@@ -677,10 +688,6 @@ export default function ChatPage() {
           </button>
         </header>
 
-        <div style={s.orbSection}>
-          <JarvisOrb compact />
-        </div>
-
         <section style={s.messages} aria-live="polite" aria-label="Chat messages">
           {messages.length <= 1 && (
             <div style={s.welcome}>
@@ -740,7 +747,7 @@ export default function ChatPage() {
                       onClick={() => speak(message.text)}
                       title="Read response aloud"
                     >
-                      🔊 Listen
+                        Listen
                     </button>
                   )}
                 </div>
@@ -772,7 +779,7 @@ export default function ChatPage() {
             }}
             onClick={toggleVoiceMode}
           >
-            {voiceMode ? "⏹ Stop Voice Mode" : "🎙 Start Voice Mode"}
+            {voiceMode ? "Stop Voice Mode" : "🎙 Start Voice Mode"}
           </button>
 
           <form
