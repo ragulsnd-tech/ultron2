@@ -568,21 +568,17 @@ export default function ChatPage() {
     <main style={s.page}>
       <aside
         style={{
-           ...s.sidebar,
-           ...(sidebarOpen ? s.sidebarMobileOpen : {}),
-           ...(typeof window !== "undefined" && window.innerWidth <= 700
-           ? {
-              position: "fixed",
-              left: sidebarOpen ? 0 : "-300px",
-              top: 0,
-              bottom: 0,
-              width: "280px",
-              minWidth: "280px",
-              zIndex: 100,
-              transition: "left 0.2s ease",
-             }
-        : {}),
-       }}
+          ...s.sidebar,
+          position: "fixed",
+          top: 0,
+          bottom: 0,
+          left: sidebarOpen ? 0 : "-300px",
+          width: 260,
+          maxWidth: "85vw",
+          zIndex: 1000,
+          transition: "left 0.25s ease",
+          overflowY: "auto",
+          }}
      >
         <div style={s.sidebarTop}>
           <div style={s.sidebarBrand}>
