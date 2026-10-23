@@ -293,10 +293,6 @@ if (appMatch) {
   }
 }
 
-    const appMatch = text.match(
-      /^(?:jarvis[, ]*)?(?:open|launch|start)\s+(calculator|notepad|paint|chrome|edge|explorer|file explorer|settings|whatsapp|youtube|instagram|telegram)$/i
-    );
-
     if (appMatch) {
       const app = appMatch[1].toLowerCase();
       try {
