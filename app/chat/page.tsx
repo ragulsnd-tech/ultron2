@@ -287,6 +287,7 @@ if (appMatch) {
         text: `"${query}" app open aagala. Google-la search pannuren.`,
       },
     ]);
+  }
 
     return true;
   }
