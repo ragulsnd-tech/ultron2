@@ -416,15 +416,6 @@ export default function ChatPage() {
     setActiveId(chat.id);
     setInput("");
     setSidebarOpen(false);
-  };
-
-  const newChat = () => {
-  const chat = makeChat();
-
-  setSessions((previous) => [chat, ...previous]);
-  setActiveId(chat.id);
-  setInput("");
-  setSidebarOpen(false);
 };
 
 const selectChat = (chat: { id: string; title: string }) => {
