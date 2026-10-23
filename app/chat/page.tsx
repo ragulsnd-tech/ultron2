@@ -389,22 +389,34 @@ export default function ChatPage() {
     recognition.start();
   };
 
-  const toggleVoiceOutput = () => {
-  setVoiceOn((previous) => !previous);
-    };
-  const next = !voiceMode;
-  setVoiceMode(next);
+    const toggleVoiceOutput = () => {
+    setVoiceOn((previous) => !previous);
+  };
 
-  if (next) {
-    setStatus("JARVIS voice mode");
-  } else {
-    try {
-      recognitionRef.current?.stop();
-    } catch {}
-    setListening(false);
-    setStatus("JARVIS ready");
-  }
-};
+    const toggleVoiceMode = () => {
+    const next = !voiceMode;
+    setVoiceMode(next);
+
+    if (next) {
+      setStatus("JARVIS voice mode");
+    } else {
+      try {
+        recognitionRef.current?.stop();
+      } catch {}
+
+      setListening(false);
+      setStatus("JARVIS ready");
+    }
+  };
+
+  const newChat = () => {
+    const chat = makeChat();
+
+    setSessions((previous) => [chat, ...previous]);
+    setActiveId(chat.id);
+    setInput("");
+    setSidebarOpen(false);
+  };
 
   const newChat = () => {
   const chat = makeChat();
