@@ -1,9 +1,9 @@
-
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
   try {
     const { message } = await request.json();
+
     const apiKey = process.env.GEMINI_API_KEY;
     const model = process.env.GEMINI_MODEL || "gemini-flash-latest";
 
@@ -21,28 +21,48 @@ export async function POST(request: Request) {
       );
     }
 
-    const result = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [
-            {
-              role: "user",
-              parts: [{ text: message }],
-            },
-          ],
-          systemInstruction: {
-            parts: [
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000);
+
+    let result: Response;
+
+    try {
+      result = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          signal: controller.signal,
+          body: JSON.stringify({
+            contents: [
               {
-                text: "You are ULTRON, a helpful AI assistant. Reply in Tamil or Tanglish when appropriate.",
+                role: "user",
+                parts: [{ text: message.trim() }],
               },
             ],
-          },
-        }),
-      }
-    );
+            systemInstruction: {
+              parts: [
+                {
+                  text: `You are JARVIS, a fast and helpful AI assistant.
+Reply directly in 1-4 short sentences by default.
+Use Tamil or Tanglish when the user does.
+Avoid long introductions and repetition.
+Give detailed explanations only when asked.`,
+                },
+              ],
+            },
+            generationConfig: {
+              maxOutputTokens: 200,
+              temperature: 0.5,
+            },
+          }),
+        }
+      );
+    } finally {
+      clearTimeout(timeout);
+    }
 
     const data = await result.json();
 
@@ -56,13 +76,21 @@ export async function POST(request: Request) {
     const reply =
       data.candidates?.[0]?.content?.parts
         ?.map((part: { text?: string }) => part.text || "")
-        .join("") || "Reply kidaikkala.";
+        .join("")
+        .trim() || "Reply kidaikkala.";
 
     return NextResponse.json({ reply });
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      return NextResponse.json(
+        { error: "JARVIS response late aaguthu. Konjam neram kazhichu try pannu." },
+        { status: 504 }
+      );
+    }
+
     return NextResponse.json(
-      { error: "Server error." },
+      { error: "Server error. API connection check pannu." },
       { status: 500 }
     );
   }
-}
+      }
