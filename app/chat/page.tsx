@@ -229,10 +229,7 @@ export default function ChatPage() {
 
     const appMatch = text.match(
   /^(?:jarvis[, ]*)?(?:open|launch|start)\s+(.+)$/i
-);
-
-if (appMatch) {
-  const query = appMatch[1].trim();
+      );
 
   try {
     const response = await fetch(
@@ -405,6 +402,7 @@ if (appMatch) {
     }
 
     const recognition = new SpeechRecognition();
+    recognitionRef.current = recognition;
     recognition.lang = "en-IN";
     recognition.continuous = false;
     recognition.interimResults = false;
@@ -425,7 +423,9 @@ if (appMatch) {
     recognition.start();
   };
 
-  const toggleVoiceMode = () => {
+  const toggleVoiceOutput = () => {
+  setVoiceOn((previous) => !previous);
+    };
   const next = !voiceMode;
   setVoiceMode(next);
 
