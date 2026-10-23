@@ -690,7 +690,7 @@ const deleteChat = (id: string) => {
   );
 }
 
-const s: Record<string, React.CSSProperties> = {
+const s: Record<string, CSSProperties> = {
   app: {
     display: "flex",
     height: "100dvh",
