@@ -162,7 +162,13 @@ export default function ChatPage() {
     },
     [activeId]
   );
+  useEffect(() => {
+  voiceOnRef.current = voiceOn;
 
+  if (!voiceOn && "speechSynthesis" in window) {
+    window.speechSynthesis.cancel();
+  }
+}, [voiceOn]);
   const speak = useCallback((text: string) => {
     if (!voiceOnRef.current || !("speechSynthesis" in window)) return;
     window.speechSynthesis.cancel();
