@@ -227,8 +227,8 @@ export default function ChatPage() {
       return true;
     }
 
-    const websiteMatch = text.match(
-      /^(?:open|visit|go to)\s+(google|youtube|gmail|wikipedia|facebook|instagram|whatsapp web)$/i
+    const appMatch = text.match(
+        /^(?:jarvis[, ]*)?(?:open|launch|start)\s+(.+)$/i
     );
 
     if (websiteMatch) {
@@ -391,8 +391,19 @@ export default function ChatPage() {
   };
 
   const toggleVoiceMode = () => {
-    setVoiceMode((previous) => !previous);
-  };
+  const next = !voiceMode;
+  setVoiceMode(next);
+
+  if (next) {
+    setStatus("JARVIS voice mode");
+  } else {
+    try {
+      recognitionRef.current?.stop();
+    } catch {}
+    setListening(false);
+    setStatus("JARVIS ready");
+  }
+};
 
   const toggleVoiceOutput = () => {
     setVoiceOn((previous) => !previous);
