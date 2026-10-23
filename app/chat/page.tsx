@@ -405,10 +405,6 @@ export default function ChatPage() {
   }
 };
 
-  const toggleVoiceOutput = () => {
-    setVoiceOn((previous) => !previous);
-  };
-
   const newChat = () => {
   const chat = makeChat();
 
