@@ -228,31 +228,70 @@ export default function ChatPage() {
     }
 
     const appMatch = text.match(
-        /^(?:jarvis[, ]*)?(?:open|launch|start)\s+(.+)$/i
+  /^(?:jarvis[, ]*)?(?:open|launch|start)\s+(.+)$/i
+);
+
+if (appMatch) {
+  const query = appMatch[1].trim();
+
+  try {
+    const response = await fetch(
+      "http://127.0.0.1:3210/open-app",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ app: query }),
+      }
     );
 
-    if (websiteMatch) {
-      const sites: Record<string, string> = {
-        google: "https://www.google.com",
-        youtube: "https://www.youtube.com",
-        gmail: "https://mail.google.com",
-        wikipedia: "https://www.wikipedia.org",
-        facebook: "https://www.facebook.com",
-        instagram: "https://www.instagram.com",
-        "whatsapp web": "https://web.whatsapp.com",
-      };
-      const site = websiteMatch[1].toLowerCase();
-      window.open(sites[site], "_blank", "noopener,noreferrer");
+    const data = await response.json();
+
+    if (response.ok && data.success) {
       updateMessages((old) => [
         ...old,
         {
           role: "assistant",
-          text: `${site} website open panna try panninen.`,
+          text: `"${query}" app open panniten.`,
         },
       ]);
-      setStatus("Website command completed");
       return true;
     }
+
+    window.open(
+      "https://www.google.com/search?q=" +
+        encodeURIComponent(query + " app"),
+      "_blank"
+    );
+
+    updateMessages((old) => [
+      ...old,
+      {
+        role: "assistant",
+        text: `"${query}" app open aagala. Google-la search pannuren.`,
+      },
+    ]);
+
+    return true;
+  } catch {
+    window.open(
+      "https://www.google.com/search?q=" +
+        encodeURIComponent(query + " app"),
+      "_blank"
+    );
+
+    updateMessages((old) => [
+      ...old,
+      {
+        role: "assistant",
+        text: `"${query}" app open aagala. Google-la search pannuren.`,
+      },
+    ]);
+
+    return true;
+  }
+}
 
     const appMatch = text.match(
       /^(?:jarvis[, ]*)?(?:open|launch|start)\s+(calculator|notepad|paint|chrome|edge|explorer|file explorer|settings|whatsapp|youtube|instagram|telegram)$/i
