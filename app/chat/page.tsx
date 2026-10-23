@@ -288,43 +288,9 @@ export default function ChatPage() {
 
     return true;
   }
+
+  return false;
 }
-
-    if (appMatch) {
-      const app = appMatch[1].toLowerCase();
-      try {
-        const response = await fetch("http://127.0.0.1:3210/open-app", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ app }),
-        });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || "App open failed");
-
-        updateMessages((old) => [
-          ...old,
-          {
-            role: "assistant",
-            text: data.message || `${app} open command sent.`,
-          },
-        ]);
-      } catch {
-        updateMessages((old) => [
-          ...old,
-          {
-            role: "assistant",
-            text:
-              `${app} app-ai direct-ah open panna local agent setup thevai. ` +
-              "Browser mattum use pannina installed apps-ai launch panna mudiyadhu.",
-          },
-        ]);
-      }
-      setStatus("App command checked");
-      return true;
-    }
-
-    return false;
-    }
   
   const sendMessage = async (text?: string) => {
     const prompt = (text ?? input).trim();
