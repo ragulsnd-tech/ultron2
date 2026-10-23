@@ -169,39 +169,50 @@ export default function ChatPage() {
     window.speechSynthesis.cancel();
   }
 }, [voiceOn]);
-  const speak = useCallback((text: string) => {
-    if (!voiceOnRef.current || !("speechSynthesis" in window)) return;
-    window.speechSynthesis.cancel();
+  
+const speak = useCallback((text: string) => {
+  if (!voiceOnRef.current || !("speechSynthesis" in window)) {
+    setStatus("Voice unavailable");
+    return;
+  }
 
-    const utterance = new SpeechSynthesisUtterance(text);
-    const voices = window.speechSynthesis.getVoices();
-    const malePattern =
-      /male|david|mark|guy|daniel|james|aaron|george|rishi|fred|alex/i;
+  window.speechSynthesis.cancel();
 
-    const preferred =
-      voices.find(
-        (v) => malePattern.test(v.name) &&
-          /en-IN|en-GB|en-US/i.test(v.lang)
-      ) ||
-      voices.find(
-        (v) => v.lang.toLowerCase() === "en-in" ||
-          v.lang.toLowerCase() === "en-gb" ||
-          v.lang.toLowerCase() === "en-us"
-      ) ||
-      voices.find((v) => v.lang.toLowerCase().startsWith("ta"));
+  const utterance = new SpeechSynthesisUtterance(text);
+  const voices = window.speechSynthesis.getVoices();
 
-    if (preferred) {
-      utterance.voice = preferred;
-      utterance.lang = preferred.lang;
-    } else {
-      utterance.lang = "en-IN";
-    }
+  const preferred =
+    voices.find(
+      (v) =>
+        /male|david|mark|guy|daniel|james|george|rishi|fred|alex/i.test(v.name) &&
+        /en-IN|en-GB|en-US/i.test(v.lang)
+    ) ||
+    voices.find((v) => /^en-IN$/i.test(v.lang)) ||
+    voices.find((v) => /^en-GB$/i.test(v.lang)) ||
+    voices.find((v) => /^en-US$/i.test(v.lang)) ||
+    voices.find((v) => /^ta/i.test(v.lang));
 
-    utterance.rate = 0.88;
-    utterance.pitch = 0.72;
-    window.speechSynthesis.speak(utterance);
-  }, []);
+  if (preferred) {
+    utterance.voice = preferred;
+    utterance.lang = preferred.lang;
+  } else {
+    utterance.lang = "en-IN";
+  }
 
+  utterance.rate = 0.9;
+  utterance.pitch = 0.85;
+  utterance.volume = 1;
+
+  utterance.onstart = () => setStatus("Speaking...");
+  utterance.onend = () => setStatus("JARVIS ready");
+  utterance.onerror = (event) => {
+    console.error("Speech error:", event.error);
+    setStatus("Voice error: " + event.error);
+  };
+
+  window.speechSynthesis.speak(utterance);
+}, []);
+  
   async function openCommand(question: string): Promise<boolean> {
     const text = question.trim();
 
