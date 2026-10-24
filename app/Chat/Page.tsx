@@ -504,16 +504,19 @@ export default function ChatPage() {
 
       if (voiceOn) speak(reply);
     } catch (error) {
-      const errorText =
-        error instanceof Error ? error.message : "Something went wrong.";
+  const errorText =
+    error instanceof Error
+      ? error.message
+      : "Something went wrong.";
 
-      updateMessages([
-        ...updatedMessages,
-        {
-          role: "assistant",
-          content: `JARVIS error: ${errorText}`,
-        },
-      ]);
+  updateMessages((old) => [
+    ...old,
+    {
+      role: "assistant",
+      text: `JARVIS error: ${errorText}`,
+    },
+  ]);
+    }
 
       setStatus("Connection error");
     } finally {
