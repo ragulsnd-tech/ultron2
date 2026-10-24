@@ -477,7 +477,7 @@ export default function ChatPage() {
           message: prompt,
           history: updatedMessages.map((item) => ({
             role: item.role,
-            content: item.content,
+            content: item.text,
           })),
           chatId: activeId,
         }),
