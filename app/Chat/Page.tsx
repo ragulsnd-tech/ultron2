@@ -525,10 +525,25 @@ export default function ChatPage() {
   const startListening = useCallback(() => {
     if (loading) return;
 
-    const SpeechRecognitionAPI =
-      typeof window !== "undefined"
-        ? window.SpeechRecognition || window.webkitSpeechRecognition
-        : undefined;
+    const browserWindow = window as Window & {
+    SpeechRecognition?: new () => SpeechRecognition;
+    webkitSpeechRecognition?: new () => SpeechRecognition;
+};
+const SpeechRecognitionAPI =
+  typeof window !== "undefined"
+    ? (
+        window as Window & {
+          SpeechRecognition?: new () => SpeechRecognition;
+          webkitSpeechRecognition?: new () => SpeechRecognition;
+        }
+      ).SpeechRecognition ||
+      (
+        window as Window & {
+          SpeechRecognition?: new () => SpeechRecognition;
+          webkitSpeechRecognition?: new () => SpeechRecognition;
+        }
+      ).webkitSpeechRecognition
+    : undefined;
 
     if (!SpeechRecognitionAPI) {
       setStatus("Speech recognition not supported. Use Chrome.");
