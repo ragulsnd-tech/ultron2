@@ -478,6 +478,7 @@ async function openCommand(question: string): Promise<boolean> {
   return true;
 }
   return false;
+  }
 }
   
   const sendMessage = async (text?: string) => {
