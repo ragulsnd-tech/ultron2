@@ -454,9 +454,7 @@ export default function ChatPage() {
       updateMessages(() =>
   updated.map((message) => ({
     role: message.role,
-    text: "text" in message 
-      ? message.text
-      : message.content,
+    text: message.text,
   }))
 );
       setStatus("JARVIS ready");
