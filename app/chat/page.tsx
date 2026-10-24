@@ -375,19 +375,22 @@ export default function ChatPage() {
     setStatus("JARVIS processing...");
 
     if (/^(voice off|stop voice|mute voice)$/i.test(prompt)) {
-      recognitionRef.current?.stop();
-      setVoiceMode(false);
-      voiceModeRef.current = false;
-      setStatus("Chat mode ready");
-      updateMessages([
-        ...messages,
-        { role: "user", content: prompt },
-        {
-          role: "assistant",
-          content: "Voice mode off. Chat mode ready.",
-        },
-      ]);
-      return;
+       recognitionRef.current?.stop();
+       setVoiceMode(false);
+       voiceModeRef.current = false;
+       setListening(false);
+       setStatus("Chat mode ready");
+
+       updateMessages((old) => [
+         ...old,
+         { role: "user", text: prompt },
+         {
+            role: "assistant",
+            text: "Voice mode off. Chat mode ready.",
+         },
+       ]);
+
+       return;
     }
 
     if (/^(voice on|start voice)$/i.test(prompt)) {
