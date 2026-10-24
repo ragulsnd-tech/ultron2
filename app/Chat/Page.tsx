@@ -516,8 +516,6 @@ export default function ChatPage() {
       text: `JARVIS error: ${errorText}`,
     },
   ]);
-    }
-
       setStatus("Connection error");
     } finally {
       setLoading(false);
