@@ -445,11 +445,16 @@ export default function ChatPage() {
         { role: "user" as const, text: prompt },
         {
           role: "assistant" as const,
-          content: "Okay. Command processed.",
+          text: "Okay. Command processed.",
         },
       ];
 
-      updateMessages(() => updated);
+      updateMessages(() =>
+  updated.map((message) => ({
+    role: message.role,
+    text: "text" in message ? message.text : message.content,
+  }))
+);
       setStatus("JARVIS ready");
       return;
     }
