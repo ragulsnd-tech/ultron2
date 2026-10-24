@@ -466,7 +466,7 @@ export default function ChatPage() {
       { role: "user", text: prompt },
     ];
 
-    updateMessages(updatedMessages);
+    updateMessages(() => updatedMessages);
     setLoading(true);
 
     try {
