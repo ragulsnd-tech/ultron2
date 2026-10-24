@@ -423,14 +423,17 @@ export default function ChatPage() {
     if (utilityReply) {
       const updated = [
         ...messages,
-        { role: "user" as const, content: prompt },
-        { role: "assistant" as const, content: utilityReply },
+        { role: "user" as const, text: prompt },
+        { role: "assistant" as const, text: utilityReply },
       ];
 
-      updateMessages(updated);
+      updateMessages(() => updated.map((message) => ({
+  ...message,
+  text: "text" in message ? message.text : "",
+})));
       setStatus("JARVIS ready");
 
-      if (voiceOutput) speak(utilityReply);
+      if (voiceOn) speak(utilityReply);
       return;
     }
 
