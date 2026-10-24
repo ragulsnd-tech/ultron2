@@ -442,21 +442,21 @@ export default function ChatPage() {
     if (handled) {
       const updated = [
         ...messages,
-        { role: "user" as const, content: prompt },
+        { role: "user" as const, text: prompt },
         {
           role: "assistant" as const,
           content: "Okay. Command processed.",
         },
       ];
 
-      updateMessages(updated);
+      updateMessages(() => updated);
       setStatus("JARVIS ready");
       return;
     }
 
     const updatedMessages: Message[] = [
       ...messages,
-      { role: "user", content: prompt },
+      { role: "user", text: prompt },
     ];
 
     updateMessages(updatedMessages);
@@ -490,7 +490,7 @@ export default function ChatPage() {
 
       updateMessages([
         ...updatedMessages,
-        { role: "assistant", content: reply },
+        { role: "assistant", text: reply },
       ]);
 
       setStatus("JARVIS ready");
