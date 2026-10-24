@@ -283,6 +283,9 @@ export default function ChatPage() {
     window.speechSynthesis.cancel();
   }
 }, [voiceOn]);
+const toggleVoiceOutput = () => {
+  setVoiceOn((previous) => !previous);
+};
   
 const speak = useCallback((text: string) => {
   if (!voiceOnRef.current || !("speechSynthesis" in window)) {
