@@ -43,6 +43,120 @@ function makeChat(): ChatSession {
   };
 }
 
+function getLocalDate(offset: number) {
+  const date = new Date();
+  date.setDate(date.getDate() + offset);
+
+  return date.toLocaleDateString("en-IN", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function getUtilityReply(prompt: string): string | null {
+  const text = prompt.toLowerCase().trim();
+
+  const dateCommands: [RegExp, number][] = [
+    [/^(?:what(?:'s| is) the )?date today$|^today(?:'s)? date$|^date$|^today$/, 0],
+    [/^yesterday$|^yesterday(?:'s)? date$|^date yesterday$|^what date was yesterday$/, -1],
+    [/^tomorrow$|^tomorrow(?:'s)? date$|^date tomorrow$|^what date is tomorrow$/, 1],
+    [/^day before yesterday$|^2 days ago$|^date 2 days ago$/, -2],
+    [/^day after tomorrow$|^after tomorrow$/, 2],
+  ];
+
+  for (const [pattern, offset] of dateCommands) {
+    if (pattern.test(text)) {
+      return getLocalDate(offset);
+    }
+  }
+
+  const future = text.match(/^after\s+(\d+)\s+days?$/);
+  if (future) return getLocalDate(Number(future[1]));
+
+  const past = text.match(/^(\d+)\s+days?\s+ago$/);
+  if (past) return getLocalDate(-Number(past[1]));
+
+  if (/^after\s+1\s+week$|^after a week$/.test(text)) {
+    return getLocalDate(7);
+  }
+
+  if (/^(?:what time is it|current time|time)$/.test(text)) {
+    return new Date().toLocaleTimeString("en-IN", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+  }
+
+  if (/^(?:what day is it|day today|today's day)$/.test(text)) {
+    return getLocalDate(0).split(",")[0];
+  }
+
+  if (/^what day was yesterday$/.test(text)) {
+    return getLocalDate(-1).split(",")[0];
+  }
+
+  if (/^what day will tomorrow be$/.test(text)) {
+    return getLocalDate(1).split(",")[0];
+  }
+
+  const calc = text.match(
+    /^(?:calculate|what is|what's|solve)\s+(.+)$/
+  );
+
+  const expression = calc ? calc[1] : text;
+
+  if (
+    /^(?:[\d\s()+\-*/%.]+)$/.test(expression) &&
+    /\d/.test(expression) &&
+    /[+\-*/%]/.test(expression)
+  ) {
+    try {
+      const result = Function(
+        `"use strict"; return (${expression})`
+      )();
+
+      if (typeof result === "number" && Number.isFinite(result)) {
+        return `Answer is ${result}`;
+      }
+    } catch {
+      return "Calculation expression correct-ah type pannu.";
+    }
+  }
+
+  const square = text.match(
+    /^(?:calculate\s+)?square\s+of\s+(-?\d+(?:\.\d+)?)$/
+  );
+
+  if (square) {
+    const n = Number(square[1]);
+    return `Square of ${n} is ${n * n}`;
+  }
+
+  const power = text.match(
+    /^(?:calculate\s+)?power\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)$/
+  );
+
+  if (power) {
+    const result = Number(power[1]) ** Number(power[2]);
+    return Number.isFinite(result)
+      ? `Answer is ${result}`
+      : "Indha power calculation result valid illa.";
+  }
+
+  const percentage = text.match(
+    /^(?:calculate\s+)?(-?\d+(?:\.\d+)?)\s*(?:percent|percentage|%)\s+of\s+(-?\d+(?:\.\d+)?)$/
+  );
+
+  if (percentage) {
+    return `Answer is ${(Number(percentage[1]) / 100) * Number(percentage[2])}`;
+  }
+
+  return null;
+}
+
 export default function ChatPage() {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeId, setActiveId] = useState("");
@@ -312,6 +426,82 @@ if (appMatch) {
 
     setInput("");
 
+    
+const lowerPrompt = prompt.toLowerCase().trim();
+
+if (["stop", "text mode", "voice off"].includes(lowerPrompt)) {
+  setVoiceMode(false);
+  voiceModeRef.current = false;
+
+  try {
+    recognitionRef.current?.stop();
+  } catch {}
+
+  setListening(false);
+  setStatus("Text mode");
+  updateMessages((old) => [
+    ...old,
+    { role: "user", text: prompt },
+    { role: "assistant", text: "Text mode active." },
+  ]);
+  return;
+}
+
+if (["start", "voice mode", "voice on"].includes(lowerPrompt)) {
+  setVoiceMode(true);
+  voiceModeRef.current = true;
+
+  updateMessages((old) => [
+    ...old,
+    { role: "user", text: prompt },
+    { role: "assistant", text: "Voice mode active. Speak to JARVIS." },
+  ]);
+
+  setStatus("Voice mode active");
+  return;
+}
+
+if (["close", "exit", "quit"].includes(lowerPrompt)) {
+  try {
+    recognitionRef.current?.stop();
+  } catch {}
+
+  if ("speechSynthesis" in window) {
+    window.speechSynthesis.cancel();
+  }
+
+  setVoiceMode(false);
+  voiceModeRef.current = false;
+  setListening(false);
+  setStatus("JARVIS stopped");
+
+  updateMessages((old) => [
+    ...old,
+    { role: "user", text: prompt },
+    {
+      role: "assistant",
+      text: "JARVIS stopped. Website-ai close panna browser tab-ai close pannu.",
+    },
+  ]);
+  return;
+}
+
+const utilityReply = getUtilityReply(prompt);
+
+if (utilityReply !== null) {
+  updateMessages((old) => [
+    ...old,
+    { role: "user", text: prompt },
+    { role: "assistant", text: utilityReply },
+  ]);
+
+  if (voiceOnRef.current) speak(utilityReply);
+  setStatus("JARVIS ready");
+  return;
+}
+    
+    
+
     if (await openCommand(prompt)) return;
 
     setLoading(true);
@@ -403,25 +593,27 @@ if (appMatch) {
     recognition.start();
   };
 
-    const toggleVoiceOutput = () => {
-    setVoiceOn((previous) => !previous);
-  };
+  startListeningRef.current = startListening;
+  
+  const toggleVoiceMode = () => {
+    const next = !voiceModeRef.current;
 
-    const toggleVoiceMode = () => {
-    const next = !voiceMode;
+    voiceModeRef.current = next;
     setVoiceMode(next);
 
     if (next) {
-      setStatus("JARVIS voice mode");
+      setStatus("Voice mode active");
+      setTimeout(() => startListeningRef.current(), 100);
     } else {
       try {
-        recognitionRef.current?.stop();
+          recognitionRef.current?.stop();
       } catch {}
 
       setListening(false);
-      setStatus("JARVIS ready");
+      setStatus("Text mode active");
     }
   };
+  
 
   const newChat = () => {
     const chat = makeChat();
