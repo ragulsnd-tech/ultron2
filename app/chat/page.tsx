@@ -330,91 +330,6 @@ const speak = useCallback((text: string) => {
   window.speechSynthesis.speak(utterance);
 }, []);
   
-  async function openCommand(question: string): Promise<boolean> {
-    const text = question.trim();
-    const appMatch = text.match(
-  /^(?:jarvis[, ]*)?(?:open|launch|start)\s+(.+?)(?:\s+app)?[.!?]*$/i
-);
-
-if (appMatch) {
-  const appName = appMatch[1].trim().toLowerCase();
-
-  const appLinks: Record<string, string> = {
-    youtube: "vnd.youtube://",
-    whatsapp: "whatsapp://",
-    instagram: "instagram://",
-    telegram: "tg://",
-    calculator: "intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.APP_CALCULATOR;end",
-  };
-
-  const appUrl = appLinks[appName];
-
-  if (appUrl) {
-    window.location.href = appUrl;
-    setStatus(`${appName} opening...`);
-    return true;
-  }
-
-  setStatus(`${appName} app link support illa.`);
-  return true;
-}
-
-    const searchMatch = text.match(
-      /^(?:google(?:\s+la)?|search(?:\s+google)?|search\s+for)\s+(.+)$/i
-    );
-
-    if (searchMatch) {
-      const query = searchMatch[1].trim();
-      window.open(
-        "https://www.google.com/search?q=" + encodeURIComponent(query),
-        "_blank",
-        "noopener,noreferrer"
-      );
-      updateMessages((old) => [
-        ...old,
-        {
-          role: "assistant",
-          text: `Google-la "${query}" search open panna try panninen.`,
-        },
-      ]);
-      setStatus("Google search opened");
-      return true;
-    }
-    const appLinks: Record<string, string> = {
-  youtube: "https://m.youtube.com/",
-  whatsapp: "https://web.whatsapp.com/",
-  instagram: "https://www.instagram.com/",
-  telegram: "https://web.telegram.org/",
-  gmail: "https://mail.google.com/",
-  chrome: "https://www.google.com/",
-};
-
-const directMatch = text.match(
-  /^(?:jarvis[, ]*)?(?:open|launch|start)\s+(.+?)(?:\s+app)?[.!?]*$/i
-);
-
-if (directMatch) {
-  const appName = directMatch[1].trim().toLowerCase();
-  const url = appLinks[appName];
-
-  if (url) {
-    window.open(url, "_blank");
-    setStatus(`${appName} opening...`);
-    return true;
-  }
-}
-    const appMatch = text.match(
-  /^(?:jarvis[, ]*)?(?:open|launch|start)\s+(.+)$/i
-      );
-if (appMatch) {
-  const query = appMatch[1].trim();
-
-  try {
-    const response = await fetch(
-      "http://127.0.0.1:3210/open-app",
-      {
-        method: "POST",
- 
 async function openCommand(question: string): Promise<boolean> {
   const text = question.trim();
 
@@ -479,8 +394,7 @@ async function openCommand(question: string): Promise<boolean> {
 }
   return false;
   }
-}
-  
+
   const sendMessage = async (text?: string) => {
     const prompt = (text ?? input).trim();
     if (!prompt || loading) return;
