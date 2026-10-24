@@ -763,4 +763,494 @@ export default function ChatPage() {
           {messages.length === 1 &&
           messages[0].content === WELCOME.content ? (
             <div style={s.welcome}>
-              <div style={s.welcomeIcon}>✦<
+              <div style={s.welcomeIcon}>✦</div>
+              <h1 style={s.welcomeTitle}>Vanakkam! I'm JARVIS.</h1>
+              <p style={s.welcomeText}>
+                Ask me anything, type a message, or use voice mode.
+              </p>
+
+              <div style={s.suggestions}>
+                {[
+                  "Explain artificial intelligence",
+                  "Open Google",
+                  "What time is it?",
+                  "Tell me a joke",
+                ].map((suggestion) => (
+                  <button
+                    key={suggestion}
+                    style={s.suggestion}
+                    onClick={() => void sendMessage(suggestion)}
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            messages.map((message, index) => (
+              <div
+                key={`${activeId}-${index}`}
+                style={{
+                  ...s.messageRow,
+                  ...(message.role === "user" ? s.userMessageRow : {}),
+                }}
+              >
+                <div style={s.avatar}>
+                  {message.role === "user" ? "YOU" : "J"}
+                </div>
+
+                <div
+                  style={{
+                    ...s.messageBubble,
+                    ...(message.role === "user" ? s.userBubble : s.assistantBubble),
+                  }}
+                >
+                  <div style={s.messageRole}>
+                    {message.role === "user" ? "You" : "JARVIS"}
+                  </div>
+
+                  <div style={s.messageContent}>
+                    {message.content}
+                  </div>
+
+                  {message.role === "assistant" && (
+                    <button
+                      style={s.outputButton}
+                      onClick={() => speak(message.content)}
+                    >
+                      🔊 Speak
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+
+          {loading && (
+            <div style={s.loadingText}>JARVIS is thinking...</div>
+          )}
+
+          <div ref={bottomRef} />
+        </section>
+
+        <section style={s.composerArea}>
+          <div style={s.composer}>
+            <textarea
+              style={s.textarea}
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+              onKeyDown={(event) => {
+                if (
+                  event.key === "Enter" &&
+                  !event.shiftKey
+                ) {
+                  event.preventDefault();
+                  void sendMessage();
+                }
+              }}
+              placeholder="Message JARVIS..."
+              rows={1}
+              disabled={loading}
+            />
+
+            <button
+              style={s.micButton}
+              onClick={startListening}
+              title="Speak"
+              disabled={loading}
+            >
+              🎙
+            </button>
+
+            <button
+              style={s.sendButton}
+              onClick={() => void sendMessage()}
+              disabled={loading || !input.trim()}
+            >
+              {loading ? "..." : "➤"}
+            </button>
+          </div>
+
+          <div style={s.disclaimer}>
+            JARVIS can make mistakes. Check important information.
+          </div>
+        </section>
+      </main>
+    </div>
+  );
+    }
+  const s: Record<string, CSSProperties> = {
+  app: {
+    display: "flex",
+    width: "100%",
+    height: "100dvh",
+    background: "#080b14",
+    color: "#edf2ff",
+    fontFamily: "Arial, sans-serif",
+    overflow: "hidden",
+  },
+  sidebar: {
+    width: 260,
+    minWidth: 220,
+    display: "flex",
+    flexDirection: "column",
+    background: "#0d1220",
+    borderRight: "1px solid #202a40",
+    padding: 16,
+    boxSizing: "border-box",
+  },
+  sidebarHeader: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 24,
+  },
+  brand: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+  },
+  brandIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    display: "grid",
+    placeItems: "center",
+    background: "linear-gradient(135deg,#00d9ff,#6655ff)",
+    color: "#fff",
+    fontWeight: 800,
+    fontSize: 22,
+  },
+  iconButton: {
+    background: "#182239",
+    border: "1px solid #2b3a57",
+    color: "#e8f4ff",
+    borderRadius: 10,
+    width: 36,
+    height: 36,
+    fontSize: 22,
+    cursor: "pointer",
+  },
+  newChatButton: {
+    width: "100%",
+    padding: "12px 14px",
+    borderRadius: 12,
+    border: "1px solid #263955",
+    background: "#121c30",
+    color: "#e7f5ff",
+    textAlign: "left",
+    cursor: "pointer",
+    fontSize: 14,
+  },
+  historyTitle: {
+    marginTop: 28,
+    marginBottom: 12,
+    color: "#8191ae",
+    fontSize: 10,
+    fontWeight: 700,
+    letterSpacing: 2,
+  },
+  historyList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 5,
+    overflowY: "auto",
+    flex: 1,
+  },
+  historyRow: {
+    display: "flex",
+    alignItems: "center",
+    borderRadius: 9,
+    background: "transparent",
+  },
+  activeHistory: {
+    background: "#17253b",
+  },
+  historyButton: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    flex: 1,
+    minWidth: 0,
+    padding: "11px 8px",
+    border: "none",
+    background: "transparent",
+    color: "#dbe7fa",
+    textAlign: "left",
+    cursor: "pointer",
+  },
+  historyDot: {
+    color: "#16c8ee",
+    fontSize: 8,
+  },
+  historyText: {
+    overflow: "hidden",
+    whiteSpace: "nowrap",
+    textOverflow: "ellipsis",
+    fontSize: 12,
+  },
+  deleteButton: {
+    border: "none",
+    background: "transparent",
+    color: "#8390a8",
+    fontSize: 20,
+    cursor: "pointer",
+    padding: "4px 8px",
+  },
+  sidebarFooter: {
+    paddingTop: 16,
+    borderTop: "1px solid #202a40",
+    color: "#8290aa",
+    fontSize: 11,
+  },
+  main: {
+    display: "flex",
+    flexDirection: "column",
+    flex: 1,
+    minWidth: 0,
+    height: "100%",
+  },
+  header: {
+    minHeight: 66,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    padding: "12px 22px",
+    borderBottom: "1px solid #202a40",
+    boxSizing: "border-box",
+  },
+  headerInfo: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 5,
+  },
+  headerTitle: {
+    fontSize: 16,
+    fontWeight: 700,
+    letterSpacing: 0.5,
+  },
+  headerSubtitle: {
+    color: "#8b9bb8",
+    fontSize: 11,
+  },
+  voiceButton: {
+    padding: "10px 14px",
+    borderRadius: 10,
+    border: "1px solid #2b3c58",
+    background: "#121b2c",
+    color: "#dcecff",
+    cursor: "pointer",
+    fontSize: 12,
+    whiteSpace: "nowrap",
+  },
+  voiceButtonActive: {
+    background: "#073c46",
+    borderColor: "#00c8df",
+    color: "#8ff4ff",
+  },
+  voicePanel: {
+    padding: 16,
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: 12,
+    borderBottom: "1px solid #202a40",
+    background: "#0b1120",
+  },
+  orbCanvas: {
+    width: 150,
+    height: 150,
+    position: "relative",
+    overflow: "hidden",
+  },
+  voiceStatus: {
+    color: "#9bdff5",
+    fontSize: 12,
+    textAlign: "center",
+  },
+  voiceControls: {
+    display: "flex",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    gap: 8,
+  },
+  listenButton: {
+    padding: "10px 14px",
+    border: "1px solid #00bcd4",
+    borderRadius: 10,
+    background: "#07313c",
+    color: "#b8f8ff",
+    cursor: "pointer",
+  },
+  outputButton: {
+    padding: "7px 10px",
+    border: "1px solid #2b3c58",
+    borderRadius: 8,
+    background: "#121b2c",
+    color: "#c7d9f5",
+    cursor: "pointer",
+    fontSize: 11,
+  },
+  messages: {
+    flex: 1,
+    overflowY: "auto",
+    padding: "24px clamp(14px, 5vw, 70px)",
+    display: "flex",
+    flexDirection: "column",
+    gap: 20,
+  },
+  welcome: {
+    margin: "auto",
+    width: "100%",
+    maxWidth: 600,
+    textAlign: "center",
+    padding: "28px 0",
+  },
+  welcomeIcon: {
+    margin: "0 auto 20px",
+    width: 64,
+    height: 64,
+    display: "grid",
+    placeItems: "center",
+    borderRadius: 22,
+    background: "linear-gradient(135deg,#063746,#25215b)",
+    border: "1px solid #17627c",
+    color: "#6beaff",
+    fontSize: 32,
+  },
+  welcomeTitle: {
+    fontSize: "clamp(23px, 4vw, 34px)",
+    margin: "0 0 12px",
+  },
+  welcomeText: {
+    color: "#94a4c0",
+    fontSize: 14,
+    lineHeight: 1.7,
+  },
+  suggestions: {
+    display: "flex",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    gap: 9,
+    marginTop: 25,
+  },
+  suggestion: {
+    padding: "11px 13px",
+    border: "1px solid #293b58",
+    borderRadius: 12,
+    background: "#10192a",
+    color: "#d7e7ff",
+    cursor: "pointer",
+    fontSize: 12,
+  },
+  messageRow: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: 12,
+    width: "100%",
+  },
+  userMessageRow: {
+    flexDirection: "row-reverse",
+  },
+  avatar: {
+    width: 32,
+    height: 32,
+    minWidth: 32,
+    display: "grid",
+    placeItems: "center",
+    borderRadius: 11,
+    background: "#15263c",
+    border: "1px solid #2c4665",
+    color: "#70eaff",
+    fontSize: 10,
+    fontWeight: 700,
+  },
+  messageBubble: {
+    maxWidth: "85%",
+    padding: "13px 15px",
+    borderRadius: 14,
+    lineHeight: 1.7,
+    overflowWrap: "anywhere",
+  },
+  userBubble: {
+    background: "#12344a",
+    border: "1px solid #20516a",
+    borderTopRightRadius: 4,
+  },
+  assistantBubble: {
+    background: "#111827",
+    border: "1px solid #253248",
+    borderTopLeftRadius: 4,
+  },
+  messageRole: {
+    marginBottom: 7,
+    color: "#7eddf5",
+    fontSize: 11,
+    fontWeight: 700,
+  },
+  messageContent: {
+    whiteSpace: "pre-wrap",
+    fontSize: 14,
+  },
+  loadingText: {
+    color: "#7eddf5",
+    fontSize: 12,
+    padding: "5px 0",
+  },
+  composerArea: {
+    padding: "12px clamp(12px, 4vw, 48px) 10px",
+    borderTop: "1px solid #202a40",
+    background: "#0b101b",
+  },
+  composer: {
+    display: "flex",
+    alignItems: "flex-end",
+    gap: 8,
+    maxWidth: 900,
+    margin: "0 auto",
+    padding: 8,
+    border: "1px solid #2b3a53",
+    borderRadius: 16,
+    background: "#111827",
+  },
+  textarea: {
+    flex: 1,
+    minWidth: 0,
+    maxHeight: 150,
+    resize: "vertical",
+    padding: "10px 8px",
+    border: "none",
+    outline: "none",
+    background: "transparent",
+    color: "#f1f6ff",
+    fontFamily: "inherit",
+    fontSize: 14,
+    lineHeight: 1.6,
+  },
+  micButton: {
+    width: 40,
+    height: 40,
+    border: "1px solid #30435e",
+    borderRadius: 11,
+    background: "#18243a",
+    color: "#b8eaff",
+    cursor: "pointer",
+  },
+  sendButton: {
+    width: 40,
+    height: 40,
+    border: "none",
+    borderRadius: 11,
+    background: "linear-gradient(135deg,#00bdd7,#5755f5)",
+    color: "#fff",
+    fontSize: 19,
+    cursor: "pointer",
+  },
+  disclaimer: {
+    paddingTop: 9,
+    textAlign: "center",
+    color: "#6e7c95",
+    fontSize: 10,
+  },
+};
