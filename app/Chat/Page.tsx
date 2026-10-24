@@ -502,7 +502,7 @@ export default function ChatPage() {
 
       setStatus("JARVIS ready");
 
-      if (voiceOutput) speak(reply);
+      if (voiceOn) speak(reply);
     } catch (error) {
       const errorText =
         error instanceof Error ? error.message : "Something went wrong.";
