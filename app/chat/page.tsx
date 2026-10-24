@@ -332,6 +332,32 @@ const speak = useCallback((text: string) => {
   
   async function openCommand(question: string): Promise<boolean> {
     const text = question.trim();
+    const appMatch = text.match(
+  /^(?:jarvis[, ]*)?(?:open|launch|start)\s+(.+?)(?:\s+app)?[.!?]*$/i
+);
+
+if (appMatch) {
+  const appName = appMatch[1].trim().toLowerCase();
+
+  const appLinks: Record<string, string> = {
+    youtube: "vnd.youtube://",
+    whatsapp: "whatsapp://",
+    instagram: "instagram://",
+    telegram: "tg://",
+    calculator: "intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.APP_CALCULATOR;end",
+  };
+
+  const appUrl = appLinks[appName];
+
+  if (appUrl) {
+    window.location.href = appUrl;
+    setStatus(`${appName} opening...`);
+    return true;
+  }
+
+  setStatus(`${appName} app link support illa.`);
+  return true;
+}
 
     const searchMatch = text.match(
       /^(?:google(?:\s+la)?|search(?:\s+google)?|search\s+for)\s+(.+)$/i
@@ -354,7 +380,29 @@ const speak = useCallback((text: string) => {
       setStatus("Google search opened");
       return true;
     }
+    const appLinks: Record<string, string> = {
+  youtube: "https://m.youtube.com/",
+  whatsapp: "https://web.whatsapp.com/",
+  instagram: "https://www.instagram.com/",
+  telegram: "https://web.telegram.org/",
+  gmail: "https://mail.google.com/",
+  chrome: "https://www.google.com/",
+};
 
+const directMatch = text.match(
+  /^(?:jarvis[, ]*)?(?:open|launch|start)\s+(.+?)(?:\s+app)?[.!?]*$/i
+);
+
+if (directMatch) {
+  const appName = directMatch[1].trim().toLowerCase();
+  const url = appLinks[appName];
+
+  if (url) {
+    window.open(url, "_blank");
+    setStatus(`${appName} opening...`);
+    return true;
+  }
+}
     const appMatch = text.match(
   /^(?:jarvis[, ]*)?(?:open|launch|start)\s+(.+)$/i
       );
@@ -366,29 +414,20 @@ if (appMatch) {
       "http://127.0.0.1:3210/open-app",
       {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ app: query }),
-      }
-    );
+ 
+async function openCommand(question: string): Promise<boolean> {
+  const text = question.trim();
 
-    const data = await response.json();
+  const searchMatch = text.match(
+    /^(?:google(?:\s+la)?|search(?:\s+google)?|search\s+for)\s+(.+)$/i
+  );
 
-    if (response.ok && data.success) {
-      updateMessages((old) => [
-        ...old,
-        {
-          role: "assistant",
-          text: `"${query}" app open panniten.`,
-        },
-      ]);
-      return true;
-    }
+  if (searchMatch) {
+    const query = searchMatch[1].trim();
 
     window.open(
       "https://www.google.com/search?q=" +
-        encodeURIComponent(query + " app"),
+        encodeURIComponent(query),
       "_blank"
     );
 
@@ -396,30 +435,48 @@ if (appMatch) {
       ...old,
       {
         role: "assistant",
-        text: `"${query}" app open aagala. Google-la search pannuren.`,
+        text: `Google-la "${query}" search open panna try panninen.`,
       },
     ]);
 
     return true;
-  } catch {
-    window.open(
-      "https://www.google.com/search?q=" +
-        encodeURIComponent(query + " app"),
-      "_blank"
-    );
-
-    updateMessages((old) => [
-      ...old,
-      {
-        role: "assistant",
-        text: `"${query}" app open aagala. Google-la search pannuren.`,
-      },
-    ]);
   }
 
+  const appMatch = text.match(
+    /^(?:jarvis[, ]*)?(?:open|launch|start)\s+(.+?)(?:\s+app)?[.!?]*$/i
+  );
+
+  if (!appMatch) return false;
+
+  const appName = appMatch[1].trim().toLowerCase();
+
+  const appLinks: Record<string, string> = {
+    youtube: "vnd.youtube://",
+    whatsapp: "whatsapp://",
+    instagram: "instagram://",
+    telegram: "tg://",
+    gmail: "https://mail.google.com/",
+    google: "https://www.google.com/",
+  };
+
+  const appUrl = appLinks[appName];
+
+  if (appUrl) {
+    window.location.href = appUrl;
+    setStatus(`${appName} opening...`);
     return true;
   }
 
+  updateMessages((old) => [
+    ...old,
+    {
+      role: "assistant",
+      text: `"${appName}"-ku direct app link set pannala. App name check pannu.`,
+    },
+  ]);
+
+  return true;
+}
   return false;
 }
   
