@@ -427,10 +427,12 @@ export default function ChatPage() {
         { role: "assistant" as const, text: utilityReply },
       ];
 
-      updateMessages(() => updated.map((message) => ({
-  ...message,
-  text: "text" in message ? message.text : message content,
-})));
+      updateMessages(() =>
+  updated.map((message) => ({
+    role: message.role,
+    text: "text" in message ? message.text : "",
+  }))
+);
       setStatus("JARVIS ready");
 
       if (voiceOn) speak(utilityReply);
@@ -493,10 +495,10 @@ export default function ChatPage() {
         data.text ||
         "JARVIS couldn't generate a reply.";
 
-      updateMessages([
-        ...updatedMessages,
-        { role: "assistant", text: reply },
-      ]);
+      updateMessages(() => [
+  ...updatedMessages,
+  { role: "assistant", text: reply },
+]);
 
       setStatus("JARVIS ready");
 
