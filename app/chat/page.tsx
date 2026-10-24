@@ -397,14 +397,10 @@ export default function ChatPage() {
       setVoiceMode(true);
       voiceModeRef.current = true;
       setStatus("Voice mode ready");
-      updateMessages([
-        ...messages,
-        { role: "user", content: prompt },
-        {
-          role: "assistant",
-          content: "Voice mode on. Press Start Voice to speak.",
-        },
-      ]);
+      updateMessages((old) => [
+         ...old,
+         { role: "user", text: prompt },
+       ]);
       return;
     }
 
