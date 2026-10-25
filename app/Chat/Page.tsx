@@ -644,7 +644,7 @@ const SpeechRecognitionAPI =
       if (remaining.length === 0) {
         const fresh = makeChat();
         setActiveId(fresh.id);
-        setMessages([WELCOME]);
+        updateMessages(() => [WELCOME]);
         return [fresh];
       }
 
