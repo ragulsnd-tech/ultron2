@@ -689,7 +689,7 @@ const SpeechRecognitionAPI =
         <div style={s.historyTitle}>RECENT CHATS</div>
 
         <div style={s.historyList}>
-          {chats.map((chat) => (
+          {sessions.map((chat) => (
             <div
               key={chat.id}
               style={{
