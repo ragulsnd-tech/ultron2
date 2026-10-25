@@ -624,7 +624,11 @@ const SpeechRecognitionAPI =
   const selectChat = (chat: ChatSession) => {
     recognitionRef.current?.stop();
     setActiveId(chat.id);
-    setMessages(chat.messages.length ? chat.messages : [WELCOME]);
+    updateMessages(() =>
+  chat.messages.length > 0
+    ? chat.messages
+    : [WELCOME]
+);
     setInput("");
     setStatus("JARVIS ready");
 
