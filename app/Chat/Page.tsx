@@ -769,7 +769,7 @@ const SpeechRecognitionAPI =
 
         <section style={s.messages}>
           {messages.length === 1 &&
-          messages[0].content === WELCOME.content ? (
+          messages[0].content === WELCOME.text ? (
             <div style={s.welcome}>
               <div style={s.welcomeIcon}>✦</div>
               <h1 style={s.welcomeTitle}>Vanakkam! I'm JARVIS.</h1>
@@ -818,13 +818,13 @@ const SpeechRecognitionAPI =
                   </div>
 
                   <div style={s.messageContent}>
-                    {message.content}
+                    {message.text}
                   </div>
 
                   {message.role === "assistant" && (
                     <button
                       style={s.outputButton}
-                      onClick={() => speak(message.content)}
+                      onClick={() => speak(message.text)}
                     >
                       🔊 Speak
                     </button>
