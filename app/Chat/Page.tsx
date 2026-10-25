@@ -609,9 +609,9 @@ const SpeechRecognitionAPI =
 
     const chat = makeChat();
 
-    setChats((previous) => [chat, ...previous]);
+    setSessions((previous) => [chat, ...previous]);
     setActiveId(chat.id);
-    setMessages([WELCOME]);
+    updateMessages(() => [WELCOME]);
     setInput("");
     setLoading(false);
     setStatus("New chat ready");
