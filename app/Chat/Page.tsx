@@ -580,7 +580,7 @@ const SpeechRecognitionAPI =
       setListening(false);
       setStatus("Couldn't start microphone. Check permission.");
     }
-  }, [loading, messages, input, voiceOutput, activeId]);
+  }, [loading, messages, input, voiceOn, activeId]);
 
   useEffect(() => {
     startListeningRef.current = startListening;
