@@ -744,13 +744,11 @@ const SpeechRecognitionAPI =
               </button>
             </div>
           ))}
-        </div>
 
         <div style={s.sidebarFooter}>
   JARVIS AI · Chat + Voice
 </div>
 </aside>
-
 <main style={s.main}>
   <header style={s.header}>
           <button
