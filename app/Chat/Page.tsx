@@ -525,24 +525,12 @@ export default function ChatPage() {
   const startListening = useCallback(() => {
     if (loading) return;
 
-    const browserWindow = window as Window & {
-    SpeechRecognition?: new () => SpeechRecognition;
-    webkitSpeechRecognition?: new () => SpeechRecognition;
-};
+    const browserWindow = window as any;
+
 const SpeechRecognitionAPI =
   typeof window !== "undefined"
-    ? (
-        window as Window & {
-          SpeechRecognition?: new () => SpeechRecognition;
-          webkitSpeechRecognition?: new () => SpeechRecognition;
-        }
-      ).SpeechRecognition ||
-      (
-        window as Window & {
-          SpeechRecognition?: new () => SpeechRecognition;
-          webkitSpeechRecognition?: new () => SpeechRecognition;
-        }
-      ).webkitSpeechRecognition
+    ? browserWindow.SpeechRecognition ||
+      browserWindow.webkitSpeechRecognition
     : undefined;
 
     if (!SpeechRecognitionAPI) {
