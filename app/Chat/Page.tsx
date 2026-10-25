@@ -638,7 +638,7 @@ const SpeechRecognitionAPI =
   };
 
   const deleteChat = (id: string) => {
-    setChats((previous) => {
+    setSessions((previous) => {
       const remaining = previous.filter((chat) => chat.id !== id);
 
       if (remaining.length === 0) {
