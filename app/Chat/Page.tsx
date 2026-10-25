@@ -757,11 +757,11 @@ const SpeechRecognitionAPI =
               <button
                 style={{
                   ...s.outputButton,
-                  ...(voiceOutput ? s.voiceButtonActive : {}),
+                  ...(voiceOn ? s.voiceButtonActive : {}),
                 }}
                 onClick={toggleVoiceOutput}
               >
-                {voiceOutput ? "Voice output ON" : "Voice output OFF"}
+                {voiceOn ? "Voice output ON" : "Voice output OFF"}
               </button>
             </div>
           </section>
