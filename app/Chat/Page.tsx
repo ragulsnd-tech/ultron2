@@ -650,10 +650,10 @@ const SpeechRecognitionAPI =
 
       if (activeId === id) {
         setActiveId(remaining[0].id);
-        setMessages(
-          remaining[0].messages.length
-            ? remaining[0].messages
-            : [WELCOME]
+        updateMessages(() =>
+         remaining[0].messages.length
+          ? remaining[0].messages
+          : [WELCOME]
         );
       }
 
