@@ -702,14 +702,15 @@ const SpeechRecognitionAPI =
           </div>
 
           {isMobile && (
-  <button
-    type="button"
-    style={s.iconButton}
-    onClick={() => setSidebarOpen(false)}
-    aria-label="Close menu"
-  >
-    ×
-  </button>
+            <button
+            type="button"
+            style={s.iconButton}
+            onClick={() => setSidebarOpen(false)}
+            aria-label="Close menu"
+           >
+         ×
+        </button>
+        )}
 
         <button style={s.newChatButton} onClick={newChat}>
           <span>＋</span> New chat
