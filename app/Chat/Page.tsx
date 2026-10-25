@@ -769,7 +769,7 @@ const SpeechRecognitionAPI =
 
         <section style={s.messages}>
           {messages.length === 1 &&
-          messages[0].content === WELCOME.text ? (
+          messages[0].text === WELCOME.text ? (
             <div style={s.welcome}>
               <div style={s.welcomeIcon}>✦</div>
               <h1 style={s.welcomeTitle}>Vanakkam! I'm JARVIS.</h1>
