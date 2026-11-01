@@ -746,9 +746,8 @@ const SpeechRecognitionAPI =
           ))}
 
         <div style={s.sidebarFooter}>
-  JARVIS AI · Chat + Voice 
+        JARVIS AI · Chat + Voice 
      </div>  
-          
 </aside>
     
 <main style={s.main}>
