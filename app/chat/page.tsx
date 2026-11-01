@@ -719,6 +719,7 @@ const SpeechRecognitionAPI =
         <div style={s.historyTitle}>RECENT CHATS</div>
 
         <div style={s.historyList}>
+          
           {sessions.map((chat) => (
             <div
               key={chat.id}
@@ -744,14 +745,15 @@ const SpeechRecognitionAPI =
               </button>
             </div>
           ))}
+        </div>
 
         <div style={s.sidebarFooter}>
-        JARVIS AI · Chat + Voice 
-     </div>  
-</aside>
+          JARVIS AI · Chat + Voice
+        </div>
+      </aside>
 
-<main style={s.main}>
-  <header style={s.header}>
+      <main style={s.main}>
+        <header style={s.header}>      
           <button
             type="button"
             aria-label={sidebarOpen ? "Close chat history" : "Open chat history"}
