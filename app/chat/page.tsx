@@ -746,9 +746,11 @@ const SpeechRecognitionAPI =
           ))}
 
         <div style={s.sidebarFooter}>
-  JARVIS AI · Chat + Voice
-</div>
+  JARVIS AI · Chat + Voice 
+     </div>  
+          
 </aside>
+    
 <main style={s.main}>
   <header style={s.header}>
           <button
@@ -764,8 +766,8 @@ const SpeechRecognitionAPI =
             }}
             onClick={() => setSidebarOpen((open) => !open)}
           >
-            {sidebarOpen ? "×" : "☰"}
-          </button>
+          {sidebarOpen ? "×" : "☰"}
+           </button>
           <div style={s.headerInfo}>
             <div style={s.headerTitle}>JARVIS Assistant</div>
             <div style={s.headerSubtitle}>{status}</div>
