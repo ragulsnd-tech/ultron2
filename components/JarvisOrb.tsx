@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createOrbScene, type OrbSceneApi } from "@/lib/orbScene";
 import { HandTracker, type TrackerStatus } from "@/lib/handTracker";
+import JarvisOrb from "@/components/JarvisOrb";
 
 type CameraState = "off" | "starting" | "on" | "error";
 
