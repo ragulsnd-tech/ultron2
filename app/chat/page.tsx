@@ -711,7 +711,9 @@ const SpeechRecognitionAPI =
          ×
         </button>
         )}
-
+          
+       </div>
+        
         <button style={s.newChatButton} onClick={newChat}>
           <span>＋</span> New chat
         </button>
