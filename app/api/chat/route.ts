@@ -8,7 +8,7 @@ export async function POST(request: Request) {
   let timeout: ReturnType<typeof setTimeout> | undefined;
 
   try {
-    // 1. Read message
+    // 1. Read user message
     let body: { message?: unknown };
 
     try {
@@ -32,51 +32,51 @@ export async function POST(request: Request) {
     // 2. Cloudflare configuration
     const accountId = process.env.CF_ACCOUNT_ID;
     const apiToken = process.env.CF_API_TOKEN;
-    const gatewayId = process.env.CF_GATEWAY_ID;
 
-    // Default model; change through Render environment variables
     const model =
       process.env.CF_MODEL ||
       "@cf/meta/llama-3.1-8b-instruct";
 
-    if (!accountId || !apiToken || !gatewayId) {
+    if (!accountId || !apiToken) {
       return NextResponse.json(
         {
-          error: "Cloudflare environment variables missing."
+          error: "Cloudflare Account ID or API Token missing."
         },
         { status: 500 }
       );
     }
 
-    // 3. Cloudflare AI Gateway endpoint
+    // 3. Direct Workers AI API
     const url =
       `https://api.cloudflare.com/client/v4/accounts/` +
-      `${encodeURIComponent(accountId)}/ai/v1/chat/completions`;
+      `${encodeURIComponent(accountId)}/ai/run/` +
+      `${model.split("/").map(encodeURIComponent).join("/")}`;
 
-    // 4. Request timeout
-    timeout = setTimeout(() => controller.abort(), 30000);
+    // 4. Timeout
+    timeout = setTimeout(
+      () => controller.abort(),
+      30000
+    );
 
-    // 5. Send request to Cloudflare Workers AI
+    // 5. Send AI request
     const result = await fetch(url, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${apiToken}`,
-        "cf-aig-gateway-id": gatewayId,
         "Content-Type": "application/json"
       },
       signal: controller.signal,
       body: JSON.stringify({
-        model,
         messages: [
           {
             role: "system",
-            content: `You are JARVIS, a fast and helpful AI assistant.
+            content: `You are JARVIS, a fast and intelligent AI assistant.
 
-Reply directly in 1-4 short sentences by default.
-Use Tamil or Tanglish when the user does.
-Avoid long introductions and repetition.
-Give detailed explanations only when asked.
-Be accurate, friendly and helpful.`
+Reply in Tamil or Tanglish when the user uses Tamil or Tanglish.
+Reply in English when the user uses English.
+Give short, direct answers by default.
+Provide detailed explanations when requested.
+Be accurate, helpful and friendly.`
           },
           {
             role: "user",
@@ -88,18 +88,17 @@ Be accurate, friendly and helpful.`
       })
     });
 
-    // 6. Read response
+    // 6. Read Cloudflare response
     const data = await result.json();
 
-    if (!result.ok) {
+    if (!result.ok || data.success === false) {
       console.error("Cloudflare AI Error:", data);
 
       return NextResponse.json(
         {
           error:
-            data?.errors?.[0]?.message ||
-            data?.error?.message ||
-            "Cloudflare AI request failed."
+            data.errors?.[0]?.message ||
+            "Cloudflare Workers AI request failed."
         },
         { status: 502 }
       );
@@ -107,7 +106,7 @@ Be accurate, friendly and helpful.`
 
     // 7. Extract AI response
     const reply =
-      data?.choices?.[0]?.message?.content?.trim();
+      data.result?.response?.trim();
 
     if (!reply) {
       return NextResponse.json(
@@ -116,7 +115,7 @@ Be accurate, friendly and helpful.`
       );
     }
 
-    // 8. Return response to JARVIS frontend
+    // 8. Return to frontend
     return NextResponse.json({ reply });
 
   } catch (error) {
@@ -125,9 +124,7 @@ Be accurate, friendly and helpful.`
       error.name === "AbortError"
     ) {
       return NextResponse.json(
-        {
-          error: "JARVIS response timed out. Try again."
-        },
+        { error: "JARVIS response timed out. Try again." },
         { status: 504 }
       );
     }
@@ -135,9 +132,7 @@ Be accurate, friendly and helpful.`
     console.error("JARVIS Server Error:", error);
 
     return NextResponse.json(
-      {
-        error: "Server error. Cloudflare connection check pannu."
-      },
+      { error: "Cloudflare AI connection failed." },
       { status: 500 }
     );
 
