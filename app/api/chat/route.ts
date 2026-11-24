@@ -1,18 +1,26 @@
+
 import { NextResponse } from "next/server";
 
+export const runtime = "nodejs";
+
 export async function POST(request: Request) {
+  const controller = new AbortController();
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+
   try {
-    const { message } = await request.json();
+    // 1. Read message
+    let body: { message?: unknown };
 
-    const apiKey = process.env.GEMINI_API_KEY;
-    const model = process.env.GEMINI_MODEL || "gemini-flash-latest";
-
-    if (!apiKey) {
+    try {
+      body = await request.json();
+    } catch {
       return NextResponse.json(
-        { error: "Gemini API key setup pannala." },
-        { status: 500 }
+        { error: "Invalid request body." },
+        { status: 400 }
       );
     }
+
+    const message = body.message;
 
     if (typeof message !== "string" || !message.trim()) {
       return NextResponse.json(
@@ -21,76 +29,119 @@ export async function POST(request: Request) {
       );
     }
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 20000);
+    // 2. Cloudflare configuration
+    const accountId = process.env.CF_ACCOUNT_ID;
+    const apiToken = process.env.CF_API_TOKEN;
+    const gatewayId = process.env.CF_GATEWAY_ID;
 
-    let result: Response;
+    // Default model; change through Render environment variables
+    const model =
+      process.env.CF_MODEL ||
+      "@cf/meta/llama-3.1-8b-instruct";
 
-    try {
-      result = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+    if (!accountId || !apiToken || !gatewayId) {
+      return NextResponse.json(
         {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          signal: controller.signal,
-          body: JSON.stringify({
-            contents: [
-              {
-                role: "user",
-                parts: [{ text: message.trim() }],
-              },
-            ],
-            systemInstruction: {
-              parts: [
-                {
-                  text: `You are JARVIS, a fast and helpful AI assistant.
+          error: "Cloudflare environment variables missing."
+        },
+        { status: 500 }
+      );
+    }
+
+    // 3. Cloudflare AI Gateway endpoint
+    const url =
+      `https://api.cloudflare.com/client/v4/accounts/` +
+      `${encodeURIComponent(accountId)}/ai/v1/chat/completions`;
+
+    // 4. Request timeout
+    timeout = setTimeout(() => controller.abort(), 30000);
+
+    // 5. Send request to Cloudflare Workers AI
+    const result = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiToken}`,
+        "cf-aig-gateway-id": gatewayId,
+        "Content-Type": "application/json"
+      },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model,
+        messages: [
+          {
+            role: "system",
+            content: `You are JARVIS, a fast and helpful AI assistant.
+
 Reply directly in 1-4 short sentences by default.
 Use Tamil or Tanglish when the user does.
 Avoid long introductions and repetition.
-Give detailed explanations only when asked.`,
-                },
-              ],
-            },
-            generationConfig: {
-              maxOutputTokens: 200,
-              temperature: 0.5,
-            },
-          }),
-        }
-      );
-    } finally {
-      clearTimeout(timeout);
-    }
+Give detailed explanations only when asked.
+Be accurate, friendly and helpful.`
+          },
+          {
+            role: "user",
+            content: message.trim()
+          }
+        ],
+        max_tokens: 500,
+        temperature: 0.5
+      })
+    });
 
+    // 6. Read response
     const data = await result.json();
 
     if (!result.ok) {
+      console.error("Cloudflare AI Error:", data);
+
       return NextResponse.json(
-        { error: data.error?.message || "Gemini request failed." },
-        { status: result.status }
+        {
+          error:
+            data?.errors?.[0]?.message ||
+            data?.error?.message ||
+            "Cloudflare AI request failed."
+        },
+        { status: 502 }
       );
     }
 
+    // 7. Extract AI response
     const reply =
-      data.candidates?.[0]?.content?.parts
-        ?.map((part: { text?: string }) => part.text || "")
-        .join("")
-        .trim() || "Reply kidaikkala.";
+      data?.choices?.[0]?.message?.content?.trim();
 
-    return NextResponse.json({ reply });
-  } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") {
+    if (!reply) {
       return NextResponse.json(
-        { error: "JARVIS response late aaguthu. Konjam neram kazhichu try pannu." },
+        { error: "JARVIS received an empty response." },
+        { status: 502 }
+      );
+    }
+
+    // 8. Return response to JARVIS frontend
+    return NextResponse.json({ reply });
+
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.name === "AbortError"
+    ) {
+      return NextResponse.json(
+        {
+          error: "JARVIS response timed out. Try again."
+        },
         { status: 504 }
       );
     }
 
+    console.error("JARVIS Server Error:", error);
+
     return NextResponse.json(
-      { error: "Server error. API connection check pannu." },
+      {
+        error: "Server error. Cloudflare connection check pannu."
+      },
       { status: 500 }
     );
+
+  } finally {
+    if (timeout) clearTimeout(timeout);
   }
-      }
+}
