@@ -1,142 +1,139 @@
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
-export async function POST(request: Request) {
-  const controller = new AbortController();
-  let timeout: ReturnType<typeof setTimeout> | undefined;
+const SYSTEM_PROMPT = `
+You are JARVIS, an intelligent personal AI assistant.
 
+LANGUAGE RULES (VERY IMPORTANT):
+
+1. Automatically detect the language and writing style of the latest user message.
+2. If the user writes English, reply in English.
+3. If the user writes Tamil script, reply in Tamil script.
+4. If the user writes Tanglish (Tamil using English letters), reply in Tanglish.
+5. If the user mixes English and Tamil, reply in the same mixed style.
+6. Support other languages when possible and reply in the user's language.
+7. Maintain the user's preferred language style throughout the conversation.
+8. Never convert Tanglish into Tamil script unless requested.
+9. Never convert Tamil script into Tanglish unless requested.
+10. Do not unnecessarily translate the user's message.
+
+PERSONALITY:
+- Your name is JARVIS.
+- Be intelligent, helpful and friendly.
+- Give accurate and useful answers.
+- Keep simple answers short.
+- Give detailed explanations when requested.
+- Understand follow-up questions using conversation history.
+- Never claim to perform actions you have not performed.
+`;
+
+export async function POST(request: NextRequest) {
   try {
-    // 1. Read user message
-    let body: { message?: unknown };
+    const body = await request.json();
 
-    try {
-      body = await request.json();
-    } catch {
+    const message =
+      typeof body.message === "string" ? body.message.trim() : "";
+
+    const history = Array.isArray(body.history)
+      ? body.history
+          .filter(
+            (item: any) =>
+              ["user", "assistant"].includes(item?.role) &&
+              typeof item?.content === "string"
+          )
+          .slice(-10)
+          .map((item: any) => ({
+            role: item.role,
+            content: item.content.slice(0, 5000),
+          }))
+      : [];
+
+    if (!message) {
       return NextResponse.json(
-        { error: "Invalid request body." },
+        { error: "Message is required" },
         { status: 400 }
       );
     }
 
-    const message = body.message;
-
-    if (typeof message !== "string" || !message.trim()) {
-      return NextResponse.json(
-        { error: "Message type pannu." },
-        { status: 400 }
-      );
-    }
-
-    // 2. Cloudflare configuration
     const accountId = process.env.CF_ACCOUNT_ID;
     const apiToken = process.env.CF_API_TOKEN;
-
     const model =
       process.env.CF_MODEL ||
       "@cf/meta/llama-3.1-8b-instruct";
 
     if (!accountId || !apiToken) {
       return NextResponse.json(
-        {
-          error: "Cloudflare Account ID or API Token missing."
-        },
+        { error: "Cloudflare credentials are missing" },
         { status: 500 }
       );
     }
 
-    // 3. Direct Workers AI API
-    const url =
+    const endpoint =
       `https://api.cloudflare.com/client/v4/accounts/` +
-      `${encodeURIComponent(accountId)}/ai/run/` +
-      `${model.split("/").map(encodeURIComponent).join("/")}`;
+      `${accountId}/ai/run/${model}`;
 
-    // 4. Timeout
-    timeout = setTimeout(
-      () => controller.abort(),
-      30000
-    );
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
 
-    // 5. Send AI request
-    const result = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${apiToken}`,
-        "Content-Type": "application/json"
-      },
-      signal: controller.signal,
-      body: JSON.stringify({
-        messages: [
-          {
-            role: "system",
-            content: `You are JARVIS, a fast and intelligent AI assistant.
-
-Reply in Tamil or Tanglish when the user uses Tamil or Tanglish.
-Reply in English when the user uses English.
-Give short, direct answers by default.
-Provide detailed explanations when requested.
-Be accurate, helpful and friendly.`
-          },
-          {
-            role: "user",
-            content: message.trim()
-          }
-        ],
-        max_tokens: 500,
-        temperature: 0.5
-      })
-    });
-
-    // 6. Read Cloudflare response
-    const data = await result.json();
-
-    if (!result.ok || data.success === false) {
-      console.error("Cloudflare AI Error:", data);
-
-      return NextResponse.json(
-        {
-          error:
-            data.errors?.[0]?.message ||
-            "Cloudflare Workers AI request failed."
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiToken}`,
+          "Content-Type": "application/json",
         },
-        { status: 502 }
-      );
+        body: JSON.stringify({
+          messages: [
+            { role: "system", content: SYSTEM_PROMPT },
+            ...history,
+            { role: "user", content: message },
+          ],
+          max_tokens: 1500,
+        }),
+        signal: controller.signal,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || data.success === false) {
+        console.error("Cloudflare AI error:", data);
+
+        return NextResponse.json(
+          { error: "Cloudflare AI request failed" },
+          { status: response.status || 500 }
+        );
+      }
+
+      const reply = data.result?.response;
+
+      if (!reply || typeof reply !== "string") {
+        return NextResponse.json(
+          { error: "Invalid AI response" },
+          { status: 502 }
+        );
+      }
+
+      return NextResponse.json({ reply });
+
+    } finally {
+      clearTimeout(timeout);
     }
-
-    // 7. Extract AI response
-    const reply =
-      data.result?.response?.trim();
-
-    if (!reply) {
-      return NextResponse.json(
-        { error: "JARVIS received an empty response." },
-        { status: 502 }
-      );
-    }
-
-    // 8. Return to frontend
-    return NextResponse.json({ reply });
 
   } catch (error) {
-    if (
-      error instanceof Error &&
-      error.name === "AbortError"
-    ) {
-      return NextResponse.json(
-        { error: "JARVIS response timed out. Try again." },
-        { status: 504 }
-      );
-    }
-
-    console.error("JARVIS Server Error:", error);
+    console.error("JARVIS API error:", error);
 
     return NextResponse.json(
-      { error: "Cloudflare AI connection failed." },
+      {
+        error:
+          error instanceof Error && error.name === "AbortError"
+            ? "AI request timed out"
+            : "Internal server error",
+      },
       { status: 500 }
     );
-
-  } finally {
-    if (timeout) clearTimeout(timeout);
   }
-}
+      }
+      
